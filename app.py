@@ -63,62 +63,65 @@ with col2:
     if not uploaded_file:
         st.warning("Esperando archivo para procesar...")
     
-    if uploaded_file and btn_procesar:
-        try:
-            def transformar_seguro(fila):
-                # Limpieza profunda de datos
-                val1 = str(fila[col_larga]).strip().split('.')[0] # Quita decimales .0 si existen
-                val2 = str(fila[col_sufijo]).strip().split('.')[0]
-                
-                if not val1 or val1.lower() == 'nan': return ""
-
-                # Aseguramos que el código largo tenga al menos 10 dígitos (rellenando con ceros a la izquierda)
-                # Esto es vital para que las posiciones siempre coincidan
-                val1 = val1.zfill(12) 
-
-                # 1. Borrar posiciones 7 y 8 (índices 6 y 7)
-                # Ejemplo: 501001[01]2942 -> 501001 + 2942
-                parte_a = val1[:6]
-                parte_b = val1[8:]
-                
-                # 2. Construir con puntos EXACTOS
-                # Estructura: XXXX . XX . XXXX . SUFIJO
-                bloque1 = parte_a[:4]
-                bloque2 = parte_a[4:6]
-                bloque3 = parte_b
-                
-                return f"{bloque1}.{bloque2}.{bloque3}.{val2}"
-
-            # Procesar
-            resultados = df.apply(transformar_seguro, axis=1)
-            consolidado_texto = ";".join(resultados[resultados != ""].astype(str))
-
-            # Insertar en Columna C
-            columna_final = [""] * len(df)
-            columna_final[0] = consolidado_texto
-            
-            if 'Consolidado_Final' in df.columns:
-                df = df.drop(columns=['Consolidado_Final'])
-            df.insert(2, 'Consolidado_Final', columna_vacia if 'columna_vacia' in locals() else columna_final)
-
-            st.balloons()
-            st.write("### ✅ Resultado SIGEF") 
-            st.dataframe(df.head(10), width='stretch')
-
-            output = io.BytesIO()
-            with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-                df.to_excel(writer, index=False, sheet_name='SIGEF')
-            
-            st.download_button(
-                label="📥 DESCARGAR EXCEL PROCESADO",
-                data=output.getvalue(),
-                file_name="DRCC_Resultado_Final.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            )
-        except Exception as e:
-            st.error(f"Error: {e}")
-    elif uploaded_file:
+    if uploaded_file:
+        # LA VISTA PREVIA AHORA ESTÁ FUERA DE CUALQUIER IF PARA QUE SIEMPRE SE VEA
+        st.write("### 🔍 Vista Previa de Origen")
         st.dataframe(df.head(10), width='stretch')
+        
+        if btn_procesar:
+            try:
+                def transformar_seguro(fila):
+                    # Limpieza profunda de datos para SIGEF
+                    val1 = str(fila[col_larga]).strip().split('.')[0] 
+                    val2 = str(fila[col_sufijo]).strip().split('.')[0]
+                    
+                    if not val1 or val1.lower() == 'nan': return ""
+
+                    # Rellenar con ceros a la izquierda hasta 12 dígitos
+                    val1 = val1.zfill(12) 
+
+                    # Borrar posiciones 7 y 8 (índices 6 y 7)
+                    parte_a = val1[:6]
+                    parte_b = val1[8:]
+                    
+                    # Estructura: XXXX . XX . XXXX . SUFIJO
+                    bloque1 = parte_a[:4]
+                    bloque2 = parte_a[4:6]
+                    bloque3 = parte_b
+                    
+                    return f"{bloque1}.{bloque2}.{bloque3}.{val2}"
+
+                # Procesar
+                resultados = df.apply(transformar_seguro, axis=1)
+                consolidado_texto = ";".join(resultados[resultados != ""].astype(str))
+
+                # Insertar en Columna C (índice 2)
+                columna_vacia = [""] * len(df)
+                columna_vacia[0] = consolidado_texto
+                
+                if 'Consolidado_Final' in df.columns:
+                    df = df.drop(columns=['Consolidado_Final'])
+                df.insert(2, 'Consolidado_Final', columna_vacia)
+
+                st.success("### ✅ Resultado SIGEF Generado") 
+                st.balloons()
+                
+                # Mostrar solo la columna nueva procesada para confirmar
+                st.write("**Vista del Consolidado Final:**")
+                st.dataframe(df[['Consolidado_Final']].head(5), width='stretch')
+
+                output = io.BytesIO()
+                with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+                    df.to_excel(writer, index=False, sheet_name='SIGEF')
+                
+                st.download_button(
+                    label="📥 DESCARGAR EXCEL PROCESADO",
+                    data=output.getvalue(),
+                    file_name="DRCC_Resultado_Final.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                )
+            except Exception as e:
+                st.error(f"Error: {e}")
 
 st.divider()
-st.caption("DRCC DATA UNIFY - Auditoría de Ordenes de Pago")
+st.caption("DRCC DATA UNIFY - Menos trabajo manual, más tiempo para el análisis de las ordenes de pago")
