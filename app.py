@@ -10,7 +10,7 @@ st.set_page_config(
     layout="wide"
 )
 
-# Estilo CSS base
+# 2. Estilo CSS para el área gris y botones
 st.markdown("""
     <style>
     .main { background-color: #f8f9fa; }
@@ -25,7 +25,8 @@ st.markdown("""
     .main-title { color: #1E3A8A; font-size: 42px; font-weight: bold; margin-bottom: 0px; line-height: 1;}
     .sub-title { color: #333; font-size: 20px; font-weight: 600; margin-top: 5px; margin-bottom: 0px;}
     .credits { color: #666; font-style: italic; font-size: 16px; margin-top: 0px;}
-    /* Estilo para el área de texto gris claro */
+    
+    /* Cuadro textarea con fondo gris claro específico */
     textarea {
         background-color: #f1f3f4 !important;
         color: #202124 !important;
@@ -76,17 +77,17 @@ with col2:
         
         if btn_procesar:
             try:
-                def transformar_seguro(fila):
-                    val1 = str(fila[col_larga]).strip().split('.')[0] 
-                    val2 = str(fila[col_sufijo]).strip().split('.')[0]
-                    if not val1 or val1.lower() == 'nan': return ""
-                    val1 = val1.zfill(12) 
-                    return f"{val1[:4]}.{val1[4:6]}.{val1[8:]}.{val2}"
+                # Lógica de transformación
+                def transformar(fila):
+                    v1 = str(fila[col_larga]).strip().split('.')[0].zfill(12)
+                    v2 = str(fila[col_sufijo]).strip().split('.')[0]
+                    if not v1 or v1 == '000000000000': return ""
+                    return f"{v1[:4]}.{v1[4:6]}.{v1[8:]}.{v2}"
 
-                resultados = df.apply(transformar_seguro, axis=1)
+                resultados = df.apply(transformar, axis=1)
                 consolidado_texto = ";".join(resultados[resultados != ""].astype(str))
 
-                # --- COMPONENTE WEB DE RESULTADO ---
+                # --- COMPONENTE DE RESULTADO EXITOSO ---
                 st.markdown("""
                     <div style="background-color: #f0fff4; border: 1px solid #c6f6d5; padding: 20px; border-radius: 10px; text-align: center; margin-bottom: 20px;">
                         <span style="color: #2f855a; font-size: 50px;">✔️</span>
@@ -96,10 +97,10 @@ with col2:
 
                 st.markdown("<p style='font-size: 18px; font-weight: 500; color: #333; margin-bottom: 5px;'>Copia y pega este código directamente en SIGEF:</p>", unsafe_allow_html=True)
                 
-                # Cuadro textarea con fondo gris claro (estilizado en el CSS de arriba)
-                st.text_area(label="Resultado", value=consolidado_texto, height=180, label_visibility="collapsed")
+                # Cuadro gris claro
+                st.text_area(label="Codes", value=consolidado_texto, height=180, label_visibility="collapsed")
                 
-                # Botón de descarga
+                # Descarga Excel
                 output = io.BytesIO()
                 with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
                     df.to_excel(writer, index=False)
