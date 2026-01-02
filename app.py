@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import io
 import os
+import streamlit.components.v1 as components
 
 # 1. Configuración de la pestaña
 st.set_page_config(
@@ -75,30 +76,23 @@ with col2:
         
         if btn_procesar:
             try:
-                # LOGICA RESTAURADA: Segmentación precisa de la estructura
+                # LOGICA RESTAURADA
                 def transformar_seguro(fila):
                     val1 = str(fila[col_larga]).strip().split('.')[0] 
                     val2 = str(fila[col_sufijo]).strip().split('.')[0]
-                    
                     if not val1 or val1.lower() == 'nan': return ""
-                    
-                    # Rellenar a 12 dígitos
                     val1 = val1.zfill(12) 
-
-                    # Segmentación para formato XXXX.XX.XXXX
-                    parte_a = val1[:6]  # Los primeros 6 dígitos
-                    parte_b = val1[8:]  # Del dígito 9 al 12 (saltando 7 y 8)
-                    
+                    parte_a = val1[:6] 
+                    parte_b = val1[8:] 
                     bloque1 = parte_a[:4]
                     bloque2 = parte_a[4:6]
                     bloque3 = parte_b
-                    
                     return f"{bloque1}.{bloque2}.{bloque3}.{val2}"
 
                 resultados = df.apply(transformar_seguro, axis=1)
                 consolidado_texto = ";".join(resultados[resultados != ""].astype(str))
 
-                # --- DISEÑO DE RESULTADO SOLICITADO ---
+                # --- DISEÑO DE RESULTADO CON BOTÓN DE COPIAR ---
                 st.markdown("""
                     <div style="background-color: #f0fff4; border: 1px solid #c6f6d5; padding: 20px; border-radius: 10px; text-align: center; margin-bottom: 20px;">
                         <span style="color: #2f855a; font-size: 50px;">✔️</span>
@@ -106,7 +100,34 @@ with col2:
                     </div>
                 """, unsafe_allow_html=True)
 
-                st.markdown("<p style='font-size: 18px; font-weight: 500; color: #333; margin-bottom: 5px;'>Copia y pega este código directamente en SIGEF:</p>", unsafe_allow_html=True)
+                # Fila de Título + Botón de Copiar
+                st.markdown(f"""
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                        <p style='font-size: 18px; font-weight: 500; color: #333; margin: 0;'>Copia y pega este código directamente en SIGEF:</p>
+                        <button onclick="copyFunction()" style="
+                            background-color: #1E3A8A; 
+                            color: white; 
+                            border: none; 
+                            padding: 8px 15px; 
+                            border-radius: 5px; 
+                            cursor: pointer; 
+                            font-weight: bold;
+                            font-size: 14px;
+                            display: flex;
+                            align-items: center;
+                            gap: 5px;">
+                            📋 Copiar todo
+                        </button>
+                    </div>
+                    <script>
+                    function copyFunction() {{
+                        const textToCopy = `{consolidado_texto}`;
+                        navigator.clipboard.writeText(textToCopy).then(() => {{
+                            alert("✅ ¡Copiado al portapapeles! Listo para SIGEF.");
+                        }});
+                    }}
+                    </script>
+                """, unsafe_allow_html=True)
                 
                 # Cuadro gris claro
                 st.text_area(label="Codes", value=consolidado_texto, height=180, label_visibility="collapsed")
