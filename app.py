@@ -87,25 +87,28 @@ with col2:
                 resultados = df.apply(transformar_seguro, axis=1)
                 consolidado_texto = ";".join(resultados[resultados != ""].astype(str))
 
-                # --- RESULTADO ---
-                st.markdown("""
-                    <div style="background-color: #f0fff4; border: 1px solid #c6f6d5; padding: 20px; border-radius: 10px; text-align: center; margin-bottom: 20px;">
-                        <span style="color: #2f855a; font-size: 50px;">✔️</span>
-                        <h2 style="color: #2f855a; margin-top: 10px; margin-bottom: 0;">Proceso Exitoso</h2>
-                    </div>
-                """, unsafe_allow_html=True)
+               # --- DISEÑO DE RESULTADO CON BOTÓN AL LADO DEL TEXTO ---
+st.markdown("""
+    <div style="background-color: #f0fff4; border: 1px solid #c6f6d5; padding: 20px; border-radius: 10px; text-align: center; margin-bottom: 20px;">
+        <span style="color: #2f855a; font-size: 50px;">✔️</span>
+        <h2 style="color: #2f855a; margin-top: 10px; margin-bottom: 0;">Proceso Exitoso</h2>
+    </div>
+""", unsafe_allow_html=True)
 
-                # Nueva fila con botón nativo de Streamlit
-                col_label, col_btn = st.columns([3, 1])
-                with col_label:
-                    st.markdown("<p style='font-size: 18px; font-weight: 500; color: #333; margin-top: 10px;'>Copia y pega este código directamente en SIGEF:</p>", unsafe_allow_html=True)
-                with col_btn:
-                    st.markdown('<div class="copy-btn-style">', unsafe_allow_html=True)
-                    # El widget nativo de código de Streamlit ya incluye un botón de copiar arriba a la derecha
-                    st.markdown('</div>', unsafe_allow_html=True)
-                
-                # Usamos st.code en lugar de st.text_area porque st.code trae un botón de "copiar" integrado por defecto
-                st.code(consolidado_texto, language=None)
+# Creamos dos columnas: una para el texto y otra para el botón
+col_instruccion, col_boton_copiar = st.columns([3, 1])
+
+with col_instruccion:
+    st.markdown("<p style='font-size: 18px; font-weight: 500; color: #333; margin-top: 10px;'>Copia y pega este código directamente en SIGEF:</p>", unsafe_allow_html=True)
+
+with col_boton_copiar:
+    # Usamos un botón de Streamlit que, al presionarlo, muestra un mensaje de éxito
+    if st.button("📋 Copiar Todo"):
+        st.write(f'<script>navigator.clipboard.writeText("{consolidado_texto}")</script>', unsafe_allow_html=True)
+        st.toast("Copiado al portapapeles", icon="✅")
+
+# El cuadro gris con los números debajo
+st.code(consolidado_texto, language=None)
                 
                 # Descarga Excel
                 output = io.BytesIO()
@@ -119,3 +122,4 @@ with col2:
 
 st.divider()
 st.caption("DRCC DATA UNIFY - Herramienta diseñada para agilizar el proceso de firma en SIGEF")
+
