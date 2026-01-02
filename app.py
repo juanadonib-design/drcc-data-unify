@@ -2,7 +2,6 @@ import streamlit as st
 import pandas as pd
 import io
 import os
-import streamlit.components.v1 as components
 
 # 1. Configuración de la pestaña
 st.set_page_config(
@@ -11,7 +10,7 @@ st.set_page_config(
     layout="wide"
 )
 
-# 2. Estilo CSS para el área gris y botones
+# 2. Estilo CSS
 st.markdown("""
     <style>
     .main { background-color: #f8f9fa; }
@@ -33,6 +32,12 @@ st.markdown("""
         font-size: 15px !important;
         border: 1px solid #dadce0 !important;
         border-radius: 8px !important;
+    }
+    /* Estilo para el mini botón de copiar */
+    .copy-btn-style > div > button {
+        height: 2.5em !important;
+        background-color: #1E3A8A !important;
+        font-size: 12px !important;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -56,15 +61,12 @@ col1, col2 = st.columns([1, 2], gap="large")
 with col1:
     st.info("### 📂 Cargar Datos")
     uploaded_file = st.file_uploader("Subir archivo Excel (.xlsx)", type=["xlsx"])
-    
     if uploaded_file:
         df = pd.read_excel(uploaded_file, dtype=str).fillna("") 
         st.success("✅ Archivo cargado")
-        
         st.write("### ⚙️ Configuración")
         col_larga = st.selectbox("Columna Código Largo", df.columns)
         col_sufijo = st.selectbox("Columna Sufijo", df.columns)
-        
         btn_procesar = st.button("UNIFICAR PARA SIGEF")
 
 with col2:
@@ -76,23 +78,16 @@ with col2:
         
         if btn_procesar:
             try:
-                # LOGICA RESTAURADA
                 def transformar_seguro(fila):
-                    val1 = str(fila[col_larga]).strip().split('.')[0] 
+                    val1 = str(fila[col_larga]).strip().split('.')[0].zfill(12) 
                     val2 = str(fila[col_sufijo]).strip().split('.')[0]
-                    if not val1 or val1.lower() == 'nan': return ""
-                    val1 = val1.zfill(12) 
-                    parte_a = val1[:6] 
-                    parte_b = val1[8:] 
-                    bloque1 = parte_a[:4]
-                    bloque2 = parte_a[4:6]
-                    bloque3 = parte_b
-                    return f"{bloque1}.{bloque2}.{bloque3}.{val2}"
+                    if not val1 or val1 == '000000000000': return ""
+                    return f"{val1[:4]}.{val1[4:6]}.{val1[8:]}.{val2}"
 
                 resultados = df.apply(transformar_seguro, axis=1)
                 consolidado_texto = ";".join(resultados[resultados != ""].astype(str))
 
-                # --- DISEÑO DE RESULTADO CON BOTÓN DE COPIAR ---
+                # --- RESULTADO ---
                 st.markdown("""
                     <div style="background-color: #f0fff4; border: 1px solid #c6f6d5; padding: 20px; border-radius: 10px; text-align: center; margin-bottom: 20px;">
                         <span style="color: #2f855a; font-size: 50px;">✔️</span>
@@ -100,54 +95,24 @@ with col2:
                     </div>
                 """, unsafe_allow_html=True)
 
-                # Fila de Título + Botón de Copiar
-                st.markdown(f"""
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                        <p style='font-size: 18px; font-weight: 500; color: #333; margin: 0;'>Copia y pega este código directamente en SIGEF:</p>
-                        <button onclick="copyFunction()" style="
-                            background-color: #1E3A8A; 
-                            color: white; 
-                            border: none; 
-                            padding: 8px 15px; 
-                            border-radius: 5px; 
-                            cursor: pointer; 
-                            font-weight: bold;
-                            font-size: 14px;
-                            display: flex;
-                            align-items: center;
-                            gap: 5px;">
-                            📋 Copiar todo
-                        </button>
-                    </div>
-                    <script>
-                    function copyFunction() {{
-                        const textToCopy = `{consolidado_texto}`;
-                        navigator.clipboard.writeText(textToCopy).then(() => {{
-                            alert("✅ ¡Copiado al portapapeles! Listo para SIGEF.");
-                        }});
-                    }}
-                    </script>
-                """, unsafe_allow_html=True)
+                # Nueva fila con botón nativo de Streamlit
+                col_label, col_btn = st.columns([3, 1])
+                with col_label:
+                    st.markdown("<p style='font-size: 18px; font-weight: 500; color: #333; margin-top: 10px;'>Copia y pega este código directamente en SIGEF:</p>", unsafe_allow_html=True)
+                with col_btn:
+                    st.markdown('<div class="copy-btn-style">', unsafe_allow_html=True)
+                    # El widget nativo de código de Streamlit ya incluye un botón de copiar arriba a la derecha
+                    st.markdown('</div>', unsafe_allow_html=True)
                 
-                # Cuadro gris claro
-                st.text_area(label="Codes", value=consolidado_texto, height=180, label_visibility="collapsed")
+                # Usamos st.code en lugar de st.text_area porque st.code trae un botón de "copiar" integrado por defecto
+                st.code(consolidado_texto, language=None)
                 
-                # Preparar Excel para descarga
-                df_export = df.copy()
-                col_res = [""] * len(df_export)
-                col_res[0] = consolidado_texto
-                df_export.insert(0, 'RESULTADO_UNIFICADO', col_res)
-
+                # Descarga Excel
                 output = io.BytesIO()
                 with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-                    df_export.to_excel(writer, index=False)
+                    df.to_excel(writer, index=False)
                 
-                st.download_button(
-                    label="📥 DESCARGAR EXCEL CONSOLIDADO",
-                    data=output.getvalue(),
-                    file_name="Resultado_SIGEF.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                )
+                st.download_button(label="📥 DESCARGAR EXCEL CONSOLIDADO", data=output.getvalue(), file_name="Resultado_SIGEF.xlsx")
                 st.balloons()
             except Exception as e:
                 st.error(f"Error: {e}")
