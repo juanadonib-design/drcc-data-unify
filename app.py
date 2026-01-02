@@ -25,8 +25,6 @@ st.markdown("""
     .main-title { color: #1E3A8A; font-size: 42px; font-weight: bold; margin-bottom: 0px; line-height: 1;}
     .sub-title { color: #333; font-size: 20px; font-weight: 600; margin-top: 5px; margin-bottom: 0px;}
     .credits { color: #666; font-style: italic; font-size: 16px; margin-top: 0px;}
-    
-    /* Cuadro textarea con fondo gris claro específico */
     textarea {
         background-color: #f1f3f4 !important;
         color: #202124 !important;
@@ -77,17 +75,30 @@ with col2:
         
         if btn_procesar:
             try:
-                # Lógica de transformación
-                def transformar(fila):
-                    v1 = str(fila[col_larga]).strip().split('.')[0].zfill(12)
-                    v2 = str(fila[col_sufijo]).strip().split('.')[0]
-                    if not v1 or v1 == '000000000000': return ""
-                    return f"{v1[:4]}.{v1[4:6]}.{v1[8:]}.{v2}"
+                # LOGICA RESTAURADA: Segmentación precisa de la estructura
+                def transformar_seguro(fila):
+                    val1 = str(fila[col_larga]).strip().split('.')[0] 
+                    val2 = str(fila[col_sufijo]).strip().split('.')[0]
+                    
+                    if not val1 or val1.lower() == 'nan': return ""
+                    
+                    # Rellenar a 12 dígitos
+                    val1 = val1.zfill(12) 
 
-                resultados = df.apply(transformar, axis=1)
+                    # Segmentación para formato XXXX.XX.XXXX
+                    parte_a = val1[:6]  # Los primeros 6 dígitos
+                    parte_b = val1[8:]  # Del dígito 9 al 12 (saltando 7 y 8)
+                    
+                    bloque1 = parte_a[:4]
+                    bloque2 = parte_a[4:6]
+                    bloque3 = parte_b
+                    
+                    return f"{bloque1}.{bloque2}.{bloque3}.{val2}"
+
+                resultados = df.apply(transformar_seguro, axis=1)
                 consolidado_texto = ";".join(resultados[resultados != ""].astype(str))
 
-                # --- COMPONENTE DE RESULTADO EXITOSO ---
+                # --- DISEÑO DE RESULTADO SOLICITADO ---
                 st.markdown("""
                     <div style="background-color: #f0fff4; border: 1px solid #c6f6d5; padding: 20px; border-radius: 10px; text-align: center; margin-bottom: 20px;">
                         <span style="color: #2f855a; font-size: 50px;">✔️</span>
@@ -100,10 +111,15 @@ with col2:
                 # Cuadro gris claro
                 st.text_area(label="Codes", value=consolidado_texto, height=180, label_visibility="collapsed")
                 
-                # Descarga Excel
+                # Preparar Excel para descarga
+                df_export = df.copy()
+                col_res = [""] * len(df_export)
+                col_res[0] = consolidado_texto
+                df_export.insert(0, 'RESULTADO_UNIFICADO', col_res)
+
                 output = io.BytesIO()
                 with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-                    df.to_excel(writer, index=False)
+                    df_export.to_excel(writer, index=False)
                 
                 st.download_button(
                     label="📥 DESCARGAR EXCEL CONSOLIDADO",
@@ -117,4 +133,3 @@ with col2:
 
 st.divider()
 st.caption("DRCC DATA UNIFY - Herramienta diseñada para agilizar el proceso de firma en SIGEF")
-
