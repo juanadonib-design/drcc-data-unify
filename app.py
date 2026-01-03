@@ -58,8 +58,10 @@ with col1:
         st.success("✅ Archivo cargado")
         
         st.write("### ⚙️ Configuración")
-        col_larga = st.selectbox("Columna Código Largo", df.columns)
-        col_sufijo = st.selectbox("Columna Sufijo", df.columns)
+        
+        # Actualización de nombres de etiquetas en los selectores
+        col_larga = st.selectbox("Estructura Programatica", df.columns)
+        col_sufijo = st.selectbox("Numero de Libramiento", df.columns)
         
         btn_procesar = st.button("UNIFICAR PARA SIGEF")
 
@@ -74,6 +76,7 @@ with col2:
             try:
                 # LOGICA RESTAURADA: Segmentación precisa de la estructura
                 def transformar_seguro(fila):
+                    # Uso de las variables seleccionadas con los nuevos nombres
                     val1 = str(fila[col_larga]).strip().split('.')[0] 
                     val2 = str(fila[col_sufijo]).strip().split('.')[0]
                     
@@ -105,7 +108,7 @@ with col2:
 
                 st.markdown("<p style='font-size: 18px; font-weight: 500; color: #333; margin-bottom: 5px;'>Copia y pega este código directamente en SIGEF:</p>", unsafe_allow_html=True)
                 
-                # CAMBIO AQUÍ: Usamos st.code para el botón de copiar nativo
+                # Botón de copiar nativo mediante st.code
                 st.code(consolidado_texto, language=None)
                 
                 # Preparar Excel para descarga
@@ -130,5 +133,3 @@ with col2:
 
 st.divider()
 st.caption("DRCC DATA UNIFY - Herramienta diseñada para agilizar el proceso de firma en SIGEF")
-
-
