@@ -37,6 +37,7 @@ col_text, col_logo = st.columns([3, 1])
 with col_text:
     st.markdown('<p class="main-title">DRCC DATA UNIFY</p>', unsafe_allow_html=True)
     st.markdown('<p class="sub-title">Creado por Juan Brito</p>', unsafe_allow_html=True)
+    st.markdown('<p class="idea-text">Idea: Chabellys Encarnacion</p>', unsafe_allow_html=True)
     st.markdown('<p class="credits">Ahorra tiempo al unificar estructuras programáticas y libramientos en SIGEF</p>', unsafe_allow_html=True)
 
 if os.path.exists("logo.png"):
@@ -129,3 +130,4 @@ with col2:
 
 st.divider()
 st.caption("DRCC DATA UNIFY - Herramienta diseñada para agilizar el proceso de firma en SIGEF")
+
