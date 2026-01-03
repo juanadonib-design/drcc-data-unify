@@ -3,132 +3,109 @@ import pandas as pd
 import io
 import os
 
-# 1. Configuración de la pestaña
+# CONFIG
 st.set_page_config(
     page_title="DRCC DATA UNIFY",
     page_icon="📊",
     layout="wide"
 )
 
-# 2. Estilo CSS para el área gris y botones
+# ESTILO CORPORATIVO (FiscalFacil-like)
 st.markdown("""
-    <style>
-    .main { background-color: #f8f9fa; }
-    .stButton>button {
-        width: 100%;
-        border-radius: 5px;
-        height: 3em;
-        background-color: #1E3A8A;
-        color: white;
-        font-weight: bold;
-    }
-    .main-title { color: #1E3A8A; font-size: 42px; font-weight: bold; margin-bottom: 0px; line-height: 1;}
-    .sub-title { color: #333; font-size: 20px; font-weight: 600; margin-top: 5px; margin-bottom: 0px;}
-    .credits { color: #666; font-style: italic; font-size: 16px; margin-top: 0px;}
-    /* El estilo del área de código nativa */
-    code {
-        color: #202124 !important;
-    }
-    </style>
-    """, unsafe_allow_html=True)
+<style>
+body { background-color: #f4f6f9; }
 
-# --- ENCABEZADO ---
-col_text, col_logo = st.columns([3, 1])
-with col_text:
-    st.markdown('<p class="main-title">DRCC DATA UNIFY</p>', unsafe_allow_html=True)
-    st.markdown('<p class="sub-title">Creado por Juan Brito</p>', unsafe_allow_html=True)
-    st.markdown('<p class="idea-text"><b>Idea de Chabellys Encarnacion</b></p>', unsafe_allow_html=True)
-    st.markdown('<p class="credits">Ahorra tiempo al unificar estructuras programáticas y libramientos en SIGEF</p>', unsafe_allow_html=True)
+.hero {
+    background: linear-gradient(135deg, #1E3A8A, #312E81);
+    padding: 40px;
+    border-radius: 15px;
+    color: white;
+    margin-bottom: 30px;
+}
 
-if os.path.exists("logo.png"):
-    with col_logo:
-        st.image("logo.png", width=180)
+.card {
+    background-color: white;
+    padding: 25px;
+    border-radius: 15px;
+    box-shadow: 0px 4px 15px rgba(0,0,0,0.08);
+    margin-bottom: 20px;
+}
 
-st.divider()
+.stButton>button {
+    width: 100%;
+    height: 3em;
+    border-radius: 8px;
+    background-color: #1E3A8A;
+    color: white;
+    font-weight: bold;
+}
 
-# --- CUERPO ---
+h1, h2, h3 { color: #1E3A8A; }
+</style>
+""", unsafe_allow_html=True)
+
+# HERO
+st.markdown("""
+<div class="hero">
+    <h1>DRCC DATA UNIFY</h1>
+    <h3>Unificación inteligente de datos SIGEF</h3>
+    <p><b>Creado por Juan Brito</b> · Idea de Chabellys Encarnación</p>
+    <p>Ahorra tiempo al unificar estructuras programáticas y libramientos</p>
+</div>
+""", unsafe_allow_html=True)
+
+# CUERPO
 col1, col2 = st.columns([1, 2], gap="large")
 
+# CARD IZQUIERDA
 with col1:
-    st.info("### 📂 Cargar Datos")
-    uploaded_file = st.file_uploader("Subir archivo Excel (.xlsx)", type=["xlsx"])
-    
+    st.markdown("<div class='card'>", unsafe_allow_html=True)
+    st.subheader("📂 Cargar datos")
+    uploaded_file = st.file_uploader("Archivo Excel (.xlsx)", type=["xlsx"])
+
     if uploaded_file:
-        df = pd.read_excel(uploaded_file, dtype=str).fillna("") 
-        st.success("✅ Archivo cargado")
-        
-        st.write("### ⚙️ Configuración")
-        col_larga = st.selectbox("Columna Código Largo", df.columns)
-        col_sufijo = st.selectbox("Columna Sufijo", df.columns)
-        
+        df = pd.read_excel(uploaded_file, dtype=str).fillna("")
+        st.success("Archivo cargado")
+
+        col_larga = st.selectbox("Código largo", df.columns)
+        col_sufijo = st.selectbox("Sufijo", df.columns)
         btn_procesar = st.button("UNIFICAR PARA SIGEF")
+    st.markdown("</div>", unsafe_allow_html=True)
 
+# CARD DERECHA
 with col2:
+    st.markdown("<div class='card'>", unsafe_allow_html=True)
+
     if not uploaded_file:
-        st.warning("Esperando archivo para procesar...")
+        st.warning("Esperando archivo...")
     else:
-        st.write("### 🔍 Vista Previa de Origen")
+        st.subheader("Vista previa")
         st.dataframe(df.head(10), use_container_width=True)
-        
+
         if btn_procesar:
-            try:
-                # LOGICA RESTAURADA: Segmentación precisa de la estructura
-                def transformar_seguro(fila):
-                    val1 = str(fila[col_larga]).strip().split('.')[0] 
-                    val2 = str(fila[col_sufijo]).strip().split('.')[0]
-                    
-                    if not val1 or val1.lower() == 'nan': return ""
-                    
-                    # Rellenar a 12 dígitos
-                    val1 = val1.zfill(12) 
+            def transformar_seguro(fila):
+                val1 = str(fila[col_larga]).split('.')[0].zfill(12)
+                val2 = str(fila[col_sufijo]).split('.')[0]
+                if not val1.strip(): return ""
+                return f"{val1[:4]}.{val1[4:6]}.{val1[8:]}.{val2}"
 
-                    # Segmentación para formato XXXX.XX.XXXX
-                    parte_a = val1[:6]  # Los primeros 6 dígitos
-                    parte_b = val1[8:]  # Del dígito 9 al 12 (saltando 7 y 8)
-                    
-                    bloque1 = parte_a[:4]
-                    bloque2 = parte_a[4:6]
-                    bloque3 = parte_b
-                    
-                    return f"{bloque1}.{bloque2}.{bloque3}.{val2}"
+            resultados = df.apply(transformar_seguro, axis=1)
+            texto = ";".join(resultados[resultados != ""])
 
-                resultados = df.apply(transformar_seguro, axis=1)
-                consolidado_texto = ";".join(resultados[resultados != ""].astype(str))
+            st.success("Proceso exitoso")
+            st.code(texto)
 
-                # --- DISEÑO DE RESULTADO SOLICITADO ---
-                st.markdown("""
-                    <div style="background-color: #f0fff4; border: 1px solid #c6f6d5; padding: 20px; border-radius: 10px; text-align: center; margin-bottom: 20px;">
-                        <span style="color: #2f855a; font-size: 50px;">✔️</span>
-                        <h2 style="color: #2f855a; margin-top: 10px; margin-bottom: 0;">Proceso Exitoso</h2>
-                    </div>
-                """, unsafe_allow_html=True)
+            output = io.BytesIO()
+            df_export = df.copy()
+            df_export.insert(0, "RESULTADO_UNIFICADO", [texto] + [""]*(len(df)-1))
+            with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
+                df_export.to_excel(writer, index=False)
 
-                st.markdown("<p style='font-size: 18px; font-weight: 500; color: #333; margin-bottom: 5px;'>Copia y pega este código directamente en SIGEF:</p>", unsafe_allow_html=True)
-                
-                # CAMBIO AQUÍ: Usamos st.code para el botón de copiar nativo
-                st.code(consolidado_texto, language=None)
-                
-                # Preparar Excel para descarga
-                df_export = df.copy()
-                col_res = [""] * len(df_export)
-                col_res[0] = consolidado_texto
-                df_export.insert(0, 'RESULTADO_UNIFICADO', col_res)
+            st.download_button(
+                "📥 Descargar Excel",
+                data=output.getvalue(),
+                file_name="Resultado_SIGEF.xlsx"
+            )
+    st.markdown("</div>", unsafe_allow_html=True)
 
-                output = io.BytesIO()
-                with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-                    df_export.to_excel(writer, index=False)
-                
-                st.download_button(
-                    label="📥 DESCARGAR EXCEL CONSOLIDADO",
-                    data=output.getvalue(),
-                    file_name="Resultado_SIGEF.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                )
-                st.balloons()
-            except Exception as e:
-                st.error(f"Error: {e}")
-
-st.divider()
-st.caption("DRCC DATA UNIFY - Herramienta diseñada para agilizar el proceso de firma en SIGEF")
-
-
+st.caption("DRCC DATA UNIFY · Plataforma de unificación de datos SIGEF")
