@@ -10,7 +10,7 @@ st.set_page_config(
     layout="wide"
 )
 
-# 2. Estilo CSS para el área gris y botones
+# 2. Estilo CSS
 st.markdown("""
     <style>
     .main { background-color: #f8f9fa; }
@@ -23,11 +23,18 @@ st.markdown("""
         font-weight: bold;
     }
     .main-title { color: #1E3A8A; font-size: 42px; font-weight: bold; margin-bottom: 0px; line-height: 1;}
-    .sub-title { color: #333; font-size: 20px; font-weight: 600; margin-top: 5px; margin-bottom: 0px;}
+    .sub-title { color: #333; font-size: 20px; font-weight: 600; margin-top: 5px; margin-bottom: 2px;}
+    .idea-text { color: #555; font-size: 16px; font-weight: 700; margin-bottom: 8px;}
     .credits { color: #666; font-style: italic; font-size: 16px; margin-top: 0px;}
-    /* El estilo del área de código nativa */
-    code {
-        color: #202124 !important;
+    
+    /* Diseño del cuadro de bienvenida */
+    .welcome-box {
+        background-color: #ffffff;
+        padding: 30px;
+        border-radius: 15px;
+        border-left: 8px solid #1E3A8A;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        margin-bottom: 25px;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -37,7 +44,7 @@ col_text, col_logo = st.columns([3, 1])
 with col_text:
     st.markdown('<p class="main-title">DRCC DATA UNIFY</p>', unsafe_allow_html=True)
     st.markdown('<p class="sub-title">Creado por Juan Brito</p>', unsafe_allow_html=True)
-    st.markdown('<p class="idea-text"><b>Idea de Chabellys Encarnacion</b></p>', unsafe_allow_html=True)
+    st.markdown('<p class="idea-text"><b>Idea: Chabellys Encarnacion</b></p>', unsafe_allow_html=True)
     st.markdown('<p class="credits">Ahorra tiempo al unificar estructuras programáticas y libramientos en SIGEF</p>', unsafe_allow_html=True)
 
 if os.path.exists("logo.png"):
@@ -46,56 +53,62 @@ if os.path.exists("logo.png"):
 
 st.divider()
 
-# --- CUERPO ---
-col1, col2 = st.columns([1, 2], gap="large")
+# --- VENTANA DE BIENVENIDA ---
+# Esta sección solo se muestra si no se ha subido ningún archivo
+uploaded_file = st.sidebar.file_uploader("Subir archivo Excel (.xlsx)", type=["xlsx"])
 
-with col1:
-    st.info("### 📂 Cargar Datos")
-    uploaded_file = st.file_uploader("Subir archivo Excel (.xlsx)", type=["xlsx"])
-    
-    if uploaded_file:
-        df = pd.read_excel(uploaded_file, dtype=str).fillna("") 
-        st.success("✅ Archivo cargado")
-        
-        st.write("### ⚙️ Configuración")
-        col_larga = st.selectbox("Columna Código Largo", df.columns)
-        col_sufijo = st.selectbox("Columna Sufijo", df.columns)
-        
-        btn_procesar = st.button("UNIFICAR PARA SIGEF")
+if not uploaded_file:
+    st.markdown("""
+        <div class="welcome-box">
+            <h2 style="color: #1E3A8A; margin-top: 0;">👋 ¡Bienvenido al Unificador de Datos!</h2>
+            <p style="font-size: 18px; color: #444;">Esta herramienta ha sido diseñada para facilitar el trabajo de los <b>32 auditores</b> del departamento.</p>
+            <hr>
+            <p style="font-size: 16px;"><b>Instrucciones rápidas:</b></p>
+            <ol>
+                <li>Carga tu archivo Excel en el panel de la izquierda (Sidebar).</li>
+                <li>Selecciona las columnas correspondientes a la estructura y el sufijo.</li>
+                <li>Haz clic en unificar y copia el resultado para SIGEF.</li>
+            </ol>
+            <p style="font-style: italic; color: #666;">Los datos procesados son privados y solo tú puedes verlos en tu sesión.</p>
+        </div>
+    """, unsafe_allow_html=True)
 
-with col2:
-    if not uploaded_file:
-        st.warning("Esperando archivo para procesar...")
-    else:
-        st.write("### 🔍 Vista Previa de Origen")
+# --- CUERPO PRINCIPAL ---
+if uploaded_file:
+    col1, col2 = st.columns([1, 2], gap="large")
+
+    with col1:
+        st.info("### ⚙️ Configuración")
+        try:
+            df = pd.read_excel(uploaded_file, dtype=str).fillna("") 
+            st.success("✅ Archivo cargado correctamente")
+            
+            col_larga = st.selectbox("Selecciona Columna Código Largo", df.columns)
+            col_sufijo = st.selectbox("Selecciona Columna Sufijo", df.columns)
+            
+            btn_procesar = st.button("UNIFICAR PARA SIGEF")
+        except Exception as e:
+            st.error(f"Error al leer el archivo: {e}")
+
+    with col2:
+        st.write("### 🔍 Vista Previa de Datos")
         st.dataframe(df.head(10), use_container_width=True)
         
         if btn_procesar:
             try:
-                # LOGICA RESTAURADA: Segmentación precisa de la estructura
                 def transformar_seguro(fila):
-                    val1 = str(fila[col_larga]).strip().split('.')[0] 
+                    val1 = str(fila[col_larga]).strip().split('.')[0].zfill(12)
                     val2 = str(fila[col_sufijo]).strip().split('.')[0]
+                    if not val1 or val1 == '000000000000': return ""
                     
-                    if not val1 or val1.lower() == 'nan': return ""
-                    
-                    # Rellenar a 12 dígitos
-                    val1 = val1.zfill(12) 
-
-                    # Segmentación para formato XXXX.XX.XXXX
-                    parte_a = val1[:6]  # Los primeros 6 dígitos
-                    parte_b = val1[8:]  # Del dígito 9 al 12 (saltando 7 y 8)
-                    
-                    bloque1 = parte_a[:4]
-                    bloque2 = parte_a[4:6]
-                    bloque3 = parte_b
-                    
-                    return f"{bloque1}.{bloque2}.{bloque3}.{val2}"
+                    # Formato XXXX.XX.XXXX
+                    p1, p2, p3 = val1[:4], val1[4:6], val1[8:]
+                    return f"{p1}.{p2}.{p3}.{val2}"
 
                 resultados = df.apply(transformar_seguro, axis=1)
                 consolidado_texto = ";".join(resultados[resultados != ""].astype(str))
 
-                # --- DISEÑO DE RESULTADO SOLICITADO ---
+                # Mensaje de Éxito
                 st.markdown("""
                     <div style="background-color: #f0fff4; border: 1px solid #c6f6d5; padding: 20px; border-radius: 10px; text-align: center; margin-bottom: 20px;">
                         <span style="color: #2f855a; font-size: 50px;">✔️</span>
@@ -103,31 +116,19 @@ with col2:
                     </div>
                 """, unsafe_allow_html=True)
 
-                st.markdown("<p style='font-size: 18px; font-weight: 500; color: #333; margin-bottom: 5px;'>Copia y pega este código directamente en SIGEF:</p>", unsafe_allow_html=True)
-                
-                # CAMBIO AQUÍ: Usamos st.code para el botón de copiar nativo
-                st.code(consolidado_texto, language=None)
-                
-                # Preparar Excel para descarga
-                df_export = df.copy()
-                col_res = [""] * len(df_export)
-                col_res[0] = consolidado_texto
-                df_export.insert(0, 'RESULTADO_UNIFICADO', col_res)
+                # Instrucción y Copiado
+                col_inst, col_btn = st.columns([3, 1])
+                with col_inst:
+                    st.markdown("<p style='font-size: 18px; font-weight: 500; color: #333; margin-top: 10px;'>Copia y pega este código directamente en SIGEF:</p>", unsafe_allow_html=True)
+                with col_btn:
+                    if st.button("📋 Copiar Todo"):
+                        st.write(f'<script>navigator.clipboard.writeText("{consolidado_texto}")</script>', unsafe_allow_html=True)
+                        st.toast("Copiado al portapapeles", icon="✅")
 
-                output = io.BytesIO()
-                with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-                    df_export.to_excel(writer, index=False)
-                
-                st.download_button(
-                    label="📥 DESCARGAR EXCEL CONSOLIDADO",
-                    data=output.getvalue(),
-                    file_name="Resultado_SIGEF.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                )
+                st.code(consolidado_texto, language=None)
                 st.balloons()
             except Exception as e:
-                st.error(f"Error: {e}")
+                st.error(f"Error en la unificación: {e}")
 
 st.divider()
 st.caption("DRCC DATA UNIFY - Herramienta diseñada para agilizar el proceso de firma en SIGEF")
-
