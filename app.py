@@ -53,7 +53,6 @@ if st.session_state.pagina == "masivo":
 
         if uploaded_file:
             try:
-                # 🔍 Detección automática de encabezado
                 scan_df = pd.read_excel(uploaded_file, header=None, nrows=6).fillna("")
                 keywords = ["estructura", "programática", "libramiento", "número"]
 
@@ -79,7 +78,6 @@ if st.session_state.pagina == "masivo":
             st.warning("Esperando archivo para procesar...")
         else:
             try:
-                # 🔎 Detección automática de columnas
                 def detectar_columna(cols, claves):
                     for col in cols:
                         if any(k in col.lower() for k in claves):
@@ -111,7 +109,6 @@ if st.session_state.pagina == "masivo":
                 if not col_estructura or not col_libramiento:
                     st.error("❌ No se pudieron detectar las columnas necesarias.")
                 else:
-                    # ⚙️ UNIFICACIÓN
                     def transformar(fila):
                         v1 = str(fila[col_estructura]).split('.')[0].zfill(12)
                         v2 = str(fila[col_libramiento]).split('.')[0]
@@ -128,12 +125,8 @@ if st.session_state.pagina == "masivo":
 
                         resultado_final = ";".join(validos)
 
-                        # 📋 COPIAR AL PORTAPAPELES (BOTÓN NATIVO)
-                        st.text_area(
-                            "📋 Resultado listo para copiar",
-                            resultado_final,
-                            height=150
-                        )
+                        # 📋 COPIAR AL PORTAPAPELES (VISIBLE)
+                        st.code(resultado_final, language=None)
 
                         st.button(
                             "➡️ Unificar estructuras una por una",
@@ -181,11 +174,8 @@ if st.session_state.pagina == "manual":
             )
             st.success("✔️ Unificación exitosa")
 
-            st.text_area(
-                "📋 Resultado listo para copiar",
-                resultado,
-                height=80
-            )
+            # 📋 COPIAR AL PORTAPAPELES (VISIBLE)
+            st.code(resultado, language=None)
 
     st.button(
         "⬅️ Volver al modo masivo",
