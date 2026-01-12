@@ -178,11 +178,11 @@ if modo.startswith("🧩"):
             placeholder="Ej: 12345"
         )
 
-    if st.button("UNIFICAR"):
-        if not estructura or not libramiento:
-            st.error("❌ Ambos campos son obligatorios")
-        elif not estructura.isdigit() or len(estructura) != 12:
-            st.error("❌ La estructura debe tener exactamente 12 dígitos")
+    # 🔄 UNIFICACIÓN AUTOMÁTICA
+    if estructura and libramiento:
+
+        if not estructura.isdigit() or len(estructura) != 12:
+            st.error("❌ La estructura debe tener exactamente 12 dígitos numéricos")
         else:
             resultado = (
                 f"{estructura[:4]}."
@@ -191,8 +191,10 @@ if modo.startswith("🧩"):
                 f"{libramiento}"
             )
 
-            st.success("✔️ Unificación exitosa")
+            st.success("✔️ Unificación automática exitosa")
             st.code(resultado, language=None)
+
 
 st.divider()
 st.caption("DRCC DATA UNIFY - Herramienta diseñada para agilizar el proceso de firma en SIGEF")
+
