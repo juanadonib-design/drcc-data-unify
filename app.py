@@ -51,57 +51,62 @@ with col1:
     uploaded_file = st.file_uploader("Subir archivo Excel (.xlsx)", type=["xlsx"])
     
     if uploaded_file:
-        # LÓGICA DE FILA DE ENCABEZADO DINÁMICA
-        # Leemos las primeras 5 filas para analizar
-        preview = pd.read_excel(uploaded_file, header=None, nrows=5)
-        
-        # Palabras clave para identificar la fila de encabezados
-        keywords = ["estructura", "programatica", "libramiento", "numero"]
-        
-        # Por defecto asumimos fila 0 (la primera)
-        header_row = 0
-        
-        # Revisamos la fila 1 y 2 (índice 0 y 1) para ver cuál tiene las palabras clave
-        for i in range(2):
-            row_values = preview.iloc[i].astype(str).str.lower().tolist()
-            if any(any(kw in val for kw in keywords) for val in row_values):
-                header_row = i
-                break
-        
-        # Cargar el DF con la fila de encabezado detectada
-        uploaded_file.seek(0) # Resetear puntero del archivo
-        df = pd.read_excel(uploaded_file, header=header_row, dtype=str).fillna("") 
-        
-        st.success(f"✅ Archivo cargado (Encabezado detectado en fila {header_row + 1})")
-        
-        st.write("### ⚙️ Configuración")
-        
-        # Función para buscar columna por palabras clave
-        def buscar_columna(lista_columnas, palabras_clave):
-            for i, col in enumerate(lista_columnas):
-                if any(palabra.lower() in str(col).lower() for palabra in palabras_clave):
-                    return i
-            return 0
+        try:
+            # LÓGICA DE DETECCIÓN DE ENCABEZADO (ESCANEO DE 4 FILAS)
+            # Leemos las primeras 10 filas para tener margen de maniobra
+            preview_scan = pd.read_excel(uploaded_file, header=None, nrows=10)
+            
+            # Palabras clave para identificar los encabezados
+            keywords = ["estructura", "programatica", "libramiento", "numero", "codigo"]
+            
+            header_row = 0 # Valor por defecto
+            
+            # Escaneamos las primeras 4 filas (índices 0, 1, 2, 3)
+            for i in range(4):
+                # Convertimos toda la fila a una lista de texto en minúsculas
+                fila_texto = preview_scan.iloc[i].astype(str).str.lower().tolist()
+                # Si alguna celda de la fila contiene una de nuestras palabras clave
+                if any(any(kw in celda for kw in keywords) for celda in fila_texto):
+                    header_row = i
+                    break
+            
+            # Recargamos el archivo desde el principio usando la fila detectada
+            uploaded_file.seek(0)
+            df = pd.read_excel(uploaded_file, header=header_row, dtype=str).fillna("")
+            
+            st.success(f"✅ Archivo cargado (Encabezado en fila {header_row + 1})")
+            
+            st.write("### ⚙️ Configuración")
+            
+            # Función para pre-seleccionar columnas automáticamente
+            def buscar_columna(lista_columnas, palabras_clave):
+                for i, col in enumerate(lista_columnas):
+                    if any(palabra.lower() in str(col).lower() for palabra in palabras_clave):
+                        return i
+                return 0
 
-        idx_estructura = buscar_columna(df.columns, ["estructura", "programatica", "codigo"])
-        idx_libramiento = buscar_columna(df.columns, ["libramiento", "numero", "sufijo"])
-        
-        col_larga = st.selectbox("Estructura Programatica", df.columns, index=idx_estructura)
-        col_sufijo = st.selectbox("Numero de Libramiento", df.columns, index=idx_libramiento)
-        
-        if idx_estructura != 0 or idx_libramiento != 0:
-            st.toast("Columnas detectadas automáticamente", icon="🔍")
-        
-        btn_procesar = st.button("UNIFICAR PARA SIGEF")
+            idx_estructura = buscar_columna(df.columns, ["estructura", "programatica", "codigo"])
+            idx_libramiento = buscar_columna(df.columns, ["libramiento", "numero", "sufijo"])
+            
+            col_larga = st.selectbox("Estructura Programatica", df.columns, index=idx_estructura)
+            col_sufijo = st.selectbox("Numero de Libramiento", df.columns, index=idx_libramiento)
+            
+            if idx_estructura != 0 or idx_libramiento != 0:
+                st.toast("Columnas detectadas automáticamente", icon="🔍")
+            
+            btn_procesar = st.button("UNIFICAR PARA SIGEF")
+            
+        except Exception as e:
+            st.error(f"Error al procesar el archivo: {e}")
 
 with col2:
     if not uploaded_file:
         st.warning("Esperando archivo para procesar...")
     else:
-        st.write("### 🔍 Vista Previa de Origen")
+        st.write("### 🔍 Vista Previa (Datos detectados)")
         st.dataframe(df.head(10), use_container_width=True)
         
-        if btn_procesar:
+        if 'btn_procesar' in locals() and btn_procesar:
             try:
                 def transformar_seguro(fila):
                     val1 = str(fila[col_larga]).strip().split('.')[0] 
@@ -110,14 +115,8 @@ with col2:
                     if not val1 or val1.lower() == 'nan' or val1 == "0": return ""
                     
                     val1 = val1.zfill(12) 
-                    parte_a = val1[:6] 
-                    parte_b = val1[8:] 
-                    
-                    bloque1 = parte_a[:4]
-                    bloque2 = parte_a[4:6]
-                    bloque3 = parte_b
-                    
-                    return f"{bloque1}.{bloque2}.{bloque3}.{val2}"
+                    p_a, p_b = val1[:6], val1[8:] 
+                    return f"{p_a[:4]}.{p_a[4:6]}.{p_b}.{val2}"
 
                 resultados = df.apply(transformar_seguro, axis=1)
                 consolidado_texto = ";".join(resultados[resultados != ""].astype(str))
@@ -132,7 +131,7 @@ with col2:
                 st.markdown("<p style='font-size: 18px; font-weight: 500; color: #333; margin-bottom: 5px;'>Copia y pega este código directamente en SIGEF:</p>", unsafe_allow_html=True)
                 st.code(consolidado_texto, language=None)
                 
-                # Botón de descarga
+                # Excel Consolidado
                 df_export = df.copy()
                 col_res = [""] * len(df_export)
                 col_res[0] = consolidado_texto
@@ -150,7 +149,7 @@ with col2:
                 )
                 st.balloons()
             except Exception as e:
-                st.error(f"Error: {e}")
+                st.error(f"Error en la unificación: {e}")
 
 st.divider()
 st.caption("DRCC DATA UNIFY - Herramienta diseñada para agilizar el proceso de firma en SIGEF")
