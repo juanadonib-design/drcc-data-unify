@@ -52,104 +52,74 @@ with col1:
     
     if uploaded_file:
         try:
-            # LÓGICA DE DETECCIÓN DE ENCABEZADO (ESCANEO DE 4 FILAS)
-            # Leemos las primeras 10 filas para tener margen de maniobra
-            preview_scan = pd.read_excel(uploaded_file, header=None, nrows=10)
+            # ESCANEO INTELIGENTE DE LAS PRIMERAS 4 FILAS
+            # Leemos las primeras 4 filas para ver cuál tiene los encabezados reales
+            scan = pd.read_excel(uploaded_file, header=None, nrows=4)
+            keywords = ["estructura", "programatica", "libramiento", "numero"]
             
-            # Palabras clave para identificar los encabezados
-            keywords = ["estructura", "programatica", "libramiento", "numero", "codigo"]
-            
-            header_row = 0 # Valor por defecto
-            
-            # Escaneamos las primeras 4 filas (índices 0, 1, 2, 3)
-            for i in range(4):
-                # Convertimos toda la fila a una lista de texto en minúsculas
-                fila_texto = preview_scan.iloc[i].astype(str).str.lower().tolist()
-                # Si alguna celda de la fila contiene una de nuestras palabras clave
-                if any(any(kw in celda for kw in keywords) for celda in fila_texto):
+            header_row = 0
+            for i in range(len(scan)):
+                fila = scan.iloc[i].astype(str).str.lower().tolist()
+                # Si encontramos las palabras clave en esta fila, fijamos el encabezado ahí
+                if any(any(key in cell for key in keywords) for cell in fila):
                     header_row = i
                     break
             
-            # Recargamos el archivo desde el principio usando la fila detectada
+            # Recargar el archivo usando la fila correcta
             uploaded_file.seek(0)
             df = pd.read_excel(uploaded_file, header=header_row, dtype=str).fillna("")
             
-            st.success(f"✅ Archivo cargado (Encabezado en fila {header_row + 1})")
+            st.success(f"✅ Encabezado detectado en fila {header_row + 1}")
             
             st.write("### ⚙️ Configuración")
             
-            # Función para pre-seleccionar columnas automáticamente
-            def buscar_columna(lista_columnas, palabras_clave):
-                for i, col in enumerate(lista_columnas):
-                    if any(palabra.lower() in str(col).lower() for palabra in palabras_clave):
-                        return i
+            def buscar_col(cols, keys):
+                for i, c in enumerate(cols):
+                    if any(k.lower() in str(c).lower() for k in keys): return i
                 return 0
 
-            idx_estructura = buscar_columna(df.columns, ["estructura", "programatica", "codigo"])
-            idx_libramiento = buscar_columna(df.columns, ["libramiento", "numero", "sufijo"])
+            # Buscar las columnas específicas que vimos en tu imagen
+            idx_e = buscar_col(df.columns, ["estructura", "programatica"])
+            idx_l = buscar_col(df.columns, ["libramiento", "numero"])
             
-            col_larga = st.selectbox("Estructura Programatica", df.columns, index=idx_estructura)
-            col_sufijo = st.selectbox("Numero de Libramiento", df.columns, index=idx_libramiento)
-            
-            if idx_estructura != 0 or idx_libramiento != 0:
-                st.toast("Columnas detectadas automáticamente", icon="🔍")
+            col_larga = st.selectbox("Estructura Programatica", df.columns, index=idx_e)
+            col_sufijo = st.selectbox("Numero de Libramiento", df.columns, index=idx_l)
             
             btn_procesar = st.button("UNIFICAR PARA SIGEF")
             
         except Exception as e:
-            st.error(f"Error al procesar el archivo: {e}")
+            st.error(f"Error al leer el archivo: {e}")
 
 with col2:
     if not uploaded_file:
         st.warning("Esperando archivo para procesar...")
     else:
-        st.write("### 🔍 Vista Previa (Datos detectados)")
+        st.write("### 🔍 Vista Previa de Datos")
+        # Mostramos la tabla limpia
         st.dataframe(df.head(10), use_container_width=True)
         
         if 'btn_procesar' in locals() and btn_procesar:
             try:
-                def transformar_seguro(fila):
-                    val1 = str(fila[col_larga]).strip().split('.')[0] 
-                    val2 = str(fila[col_sufijo]).strip().split('.')[0]
-                    
-                    if not val1 or val1.lower() == 'nan' or val1 == "0": return ""
-                    
-                    val1 = val1.zfill(12) 
-                    p_a, p_b = val1[:6], val1[8:] 
-                    return f"{p_a[:4]}.{p_a[4:6]}.{p_b}.{val2}"
+                def transformar(fila):
+                    v1 = str(fila[col_larga]).strip().split('.')[0].zfill(12)
+                    v2 = str(fila[col_sufijo]).strip().split('.')[0]
+                    if not v1 or v1 == '000000000000': return ""
+                    return f"{v1[:4]}.{v1[4:6]}.{v1[8:]}.{v2}"
 
-                resultados = df.apply(transformar_seguro, axis=1)
-                consolidado_texto = ";".join(resultados[resultados != ""].astype(str))
+                res = df.apply(transformar, axis=1)
+                final_txt = ";".join(res[res != ""].astype(str))
 
                 st.markdown("""
-                    <div style="background-color: #f0fff4; border: 1px solid #c6f6d5; padding: 20px; border-radius: 10px; text-align: center; margin-bottom: 20px;">
-                        <span style="color: #2f855a; font-size: 50px;">✔️</span>
-                        <h2 style="color: #2f855a; margin-top: 10px; margin-bottom: 0;">Proceso Exitoso</h2>
+                    <div style="background-color: #f0fff4; border: 1px solid #c6f6d5; padding: 20px; border-radius: 10px; text-align: center;">
+                        <h2 style="color: #2f855a; margin: 0;">✔️ Proceso Exitoso</h2>
                     </div>
                 """, unsafe_allow_html=True)
 
-                st.markdown("<p style='font-size: 18px; font-weight: 500; color: #333; margin-bottom: 5px;'>Copia y pega este código directamente en SIGEF:</p>", unsafe_allow_html=True)
-                st.code(consolidado_texto, language=None)
-                
-                # Excel Consolidado
-                df_export = df.copy()
-                col_res = [""] * len(df_export)
-                col_res[0] = consolidado_texto
-                df_export.insert(0, 'RESULTADO_UNIFICADO', col_res)
-
-                output = io.BytesIO()
-                with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-                    df_export.to_excel(writer, index=False)
-                
-                st.download_button(
-                    label="📥 DESCARGAR EXCEL CONSOLIDADO",
-                    data=output.getvalue(),
-                    file_name="Resultado_SIGEF.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                )
+                st.markdown("<p style='margin-top:15px; font-weight:500;'>Copia esto en SIGEF:</p>", unsafe_allow_html=True)
+                st.code(final_txt, language=None)
                 st.balloons()
             except Exception as e:
-                st.error(f"Error en la unificación: {e}")
+                st.error(f"Error: {e}")
 
 st.divider()
-st.caption("DRCC DATA UNIFY - Herramienta diseñada para agilizar el proceso de firma en SIGEF")
+st.caption("DRCC DATA UNIFY - Optimizando la auditoría para SIGEF")
