@@ -10,7 +10,7 @@ st.set_page_config(
     layout="wide"
 )
 
-# 2. Estilo CSS para el área gris y botones
+# 2. Estilo CSS
 st.markdown("""
     <style>
     .main { background-color: #f8f9fa; }
@@ -25,9 +25,7 @@ st.markdown("""
     .main-title { color: #1E3A8A; font-size: 42px; font-weight: bold; margin-bottom: 0px; line-height: 1;}
     .sub-title { color: #333; font-size: 20px; font-weight: 600; margin-top: 5px; margin-bottom: 0px;}
     .credits { color: #666; font-style: italic; font-size: 16px; margin-top: 0px;}
-    code {
-        color: #202124 !important;
-    }
+    code { color: #202124 !important; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -53,23 +51,41 @@ with col1:
     uploaded_file = st.file_uploader("Subir archivo Excel (.xlsx)", type=["xlsx"])
     
     if uploaded_file:
-        df = pd.read_excel(uploaded_file, dtype=str).fillna("") 
-        st.success("✅ Archivo cargado")
+        # LÓGICA DE FILA DE ENCABEZADO DINÁMICA
+        # Leemos las primeras 5 filas para analizar
+        preview = pd.read_excel(uploaded_file, header=None, nrows=5)
+        
+        # Palabras clave para identificar la fila de encabezados
+        keywords = ["estructura", "programatica", "libramiento", "numero"]
+        
+        # Por defecto asumimos fila 0 (la primera)
+        header_row = 0
+        
+        # Revisamos la fila 1 y 2 (índice 0 y 1) para ver cuál tiene las palabras clave
+        for i in range(2):
+            row_values = preview.iloc[i].astype(str).str.lower().tolist()
+            if any(any(kw in val for kw in keywords) for val in row_values):
+                header_row = i
+                break
+        
+        # Cargar el DF con la fila de encabezado detectada
+        uploaded_file.seek(0) # Resetear puntero del archivo
+        df = pd.read_excel(uploaded_file, header=header_row, dtype=str).fillna("") 
+        
+        st.success(f"✅ Archivo cargado (Encabezado detectado en fila {header_row + 1})")
         
         st.write("### ⚙️ Configuración")
         
-        # --- LÓGICA DE DETECCIÓN AUTOMÁTICA ---
+        # Función para buscar columna por palabras clave
         def buscar_columna(lista_columnas, palabras_clave):
             for i, col in enumerate(lista_columnas):
                 if any(palabra.lower() in str(col).lower() for palabra in palabras_clave):
                     return i
             return 0
 
-        # Intentamos pre-seleccionar automáticamente buscando coincidencias
         idx_estructura = buscar_columna(df.columns, ["estructura", "programatica", "codigo"])
         idx_libramiento = buscar_columna(df.columns, ["libramiento", "numero", "sufijo"])
         
-        # Selectores con detección automática mediante el parámetro 'index'
         col_larga = st.selectbox("Estructura Programatica", df.columns, index=idx_estructura)
         col_sufijo = st.selectbox("Numero de Libramiento", df.columns, index=idx_libramiento)
         
@@ -91,7 +107,7 @@ with col2:
                     val1 = str(fila[col_larga]).strip().split('.')[0] 
                     val2 = str(fila[col_sufijo]).strip().split('.')[0]
                     
-                    if not val1 or val1.lower() == 'nan': return ""
+                    if not val1 or val1.lower() == 'nan' or val1 == "0": return ""
                     
                     val1 = val1.zfill(12) 
                     parte_a = val1[:6] 
@@ -114,10 +130,9 @@ with col2:
                 """, unsafe_allow_html=True)
 
                 st.markdown("<p style='font-size: 18px; font-weight: 500; color: #333; margin-bottom: 5px;'>Copia y pega este código directamente en SIGEF:</p>", unsafe_allow_html=True)
-                
                 st.code(consolidado_texto, language=None)
                 
-                # Preparar Excel para descarga
+                # Botón de descarga
                 df_export = df.copy()
                 col_res = [""] * len(df_export)
                 col_res[0] = consolidado_texto
