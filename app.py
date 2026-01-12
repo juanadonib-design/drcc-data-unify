@@ -40,32 +40,29 @@ with col1:
     st.info("### 📂 Cargar Datos")
     uploaded_file = st.file_uploader("Subir archivo Excel (.xlsx)", type=["xlsx"])
     
+    # Inicializamos df como None para evitar el NameError
+    df = None 
+    
     if uploaded_file:
         try:
-            # PASO 1: Escanear las primeras 5 filas para encontrar los encabezados reales
-            # Leemos sin encabezado para analizar los datos crudos
+            # Escaneo de las primeras 5 filas para detectar el encabezado real
             scan_df = pd.read_excel(uploaded_file, header=None, nrows=5)
-            
-            # Palabras clave exactas de tu imagen
             keywords = ["estructura", "programática", "libramiento", "número"]
             
             header_found = 0
             for i in range(len(scan_df)):
-                # Convertimos toda la fila a una sola cadena de texto para buscar
                 fila_unida = " ".join(scan_df.iloc[i].astype(str).lower())
                 if any(k in fila_unida for k in keywords):
                     header_found = i
                     break
             
-            # PASO 2: Cargar el Excel desde la fila detectada
+            # Carga real de los datos
             uploaded_file.seek(0)
             df = pd.read_excel(uploaded_file, header=header_found, dtype=str).fillna("")
-            
-            st.success(f"✅ Encabezados detectados en la fila {header_found + 1}")
+            st.success(f"✅ Encabezados detectados (Fila {header_found + 1})")
             
             st.write("### ⚙️ Configuración")
             
-            # Función de búsqueda mejorada para coincidir con tu imagen
             def auto_detect(columns, target_keys):
                 for i, col in enumerate(columns):
                     col_str = str(col).lower()
@@ -73,7 +70,6 @@ with col1:
                         return i
                 return 0
 
-            # Detectamos las columnas según el texto de tu imagen
             idx_est = auto_detect(df.columns, ["estructura", "programática"])
             idx_lib = auto_detect(df.columns, ["libramiento", "número"])
             
@@ -83,37 +79,32 @@ with col1:
             btn_procesar = st.button("UNIFICAR PARA SIGEF")
             
         except Exception as e:
-            st.error(f"Error técnico: {e}")
+            st.error(f"Error al leer el archivo: {e}")
 
 with col2:
-    if not uploaded_file:
-        st.warning("Esperando archivo...")
+    if uploaded_file is None or df is None:
+        st.warning("Esperando archivo para procesar...")
     else:
-        st.write("### 🔍 Vista Previa (Datos Limpios)")
+        st.write("### 🔍 Vista Previa de Datos")
+        # Ahora df está garantizado que existe si entramos aquí
         st.dataframe(df.head(10), use_container_width=True)
         
         if 'btn_procesar' in locals() and btn_procesar:
             try:
-                # Lógica de unificación manteniendo los ceros a la izquierda
                 def transformar(fila):
-                    # Limpiar el dato y asegurar 12 dígitos
                     v1 = str(fila[col_larga]).strip().split('.')[0].zfill(12)
                     v2 = str(fila[col_sufijo]).strip().split('.')[0]
-                    
-                    if v1 == "000000000000" or not v2: return ""
-                    
-                    # Formato XXXX.XX.XXXX
+                    if v1 == "000000000000" or not v2 or v2.lower() == 'nan': return ""
                     return f"{v1[:4]}.{v1[4:6]}.{v1[8:]}.{v2}"
 
                 resultados = df.apply(transformar, axis=1)
                 consolidado = ";".join(resultados[resultados != ""].astype(str))
 
                 st.success("✔️ Proceso Exitoso")
-                st.markdown("**Copia esto en SIGEF:**")
                 st.code(consolidado, language=None)
                 st.balloons()
             except Exception as e:
-                st.error(f"Error al procesar: {e}")
+                st.error(f"Error en unificación: {e}")
 
 st.divider()
 st.caption("DRCC DATA UNIFY - Herramienta diseñada para agilizar el proceso de firma en SIGEF")
