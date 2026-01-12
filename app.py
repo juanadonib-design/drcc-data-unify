@@ -71,9 +71,9 @@ if modo.startswith("🔁"):
 
                 uploaded_file.seek(0)
                 df = pd.read_excel(uploaded_file, header=header_row, dtype=str).fillna("")
-                st.success(f"✅ Encabezados detectados (Fila {header_row + 1})")
+                st.success(f"✅ Archivo cargado correctamente")
 
-                override = st.checkbox("✏️ Crear o cambiar encabezados manualmente")
+                override = st.checkbox("✏️ El archivo no tiene encabezados / Cambiar columnas manualmente")
 
             except Exception as e:
                 st.error(f"Error al leer el archivo: {e}")
@@ -84,40 +84,45 @@ if modo.startswith("🔁"):
         else:
             try:
                 # ======================================================
-                # CREACIÓN MANUAL DE ENCABEZADOS
+                # CASO: ARCHIVO SIN ENCABEZADOS
                 # ======================================================
                 if override:
-                    st.info("Selecciona la fila que contiene los nombres de las columnas")
+                    st.info("El archivo no contiene nombres de columnas. Se asignarán automáticamente.")
 
-                    fila_encabezado = st.number_input(
-                        "Fila de encabezado (empieza en 1)",
-                        min_value=1,
-                        max_value=len(df),
-                        value=1,
-                        step=1
-                    )
-
-                    nuevos_encabezados = df.iloc[fila_encabezado - 1].astype(str)
-                    df.columns = nuevos_encabezados
-                    df = df.iloc[fila_encabezado:].reset_index(drop=True)
-
-                    st.success("✅ Encabezados creados manualmente")
+                    # 1️⃣ Vista previa
+                    st.write("👀 Vista previa de los datos")
                     st.dataframe(df.head(20), use_container_width=True)
 
-                # ======================================================
-                # DETECCIÓN DE COLUMNAS
-                # ======================================================
-                def detectar_columna(cols, claves):
-                    for col in cols:
-                        if any(k in col.lower() for k in claves):
-                            return col
-                    return None
+                    # 2️⃣ Crear nombres automáticos
+                    df.columns = [f"Columna_{i+1}" for i in range(len(df.columns))]
+                    st.success("✅ Columnas creadas automáticamente")
 
-                col_estructura = detectar_columna(df.columns, ["estructura", "programática"])
-                col_libramiento = detectar_columna(df.columns, ["libramiento", "número"])
+                    # 3️⃣ Selección manual de columnas clave
+                    col_estructura = st.selectbox(
+                        "Selecciona la columna de Estructura Programática",
+                        df.columns
+                    )
+
+                    col_libramiento = st.selectbox(
+                        "Selecciona la columna de Número de Libramiento",
+                        df.columns
+                    )
+
+                # ======================================================
+                # CASO: ARCHIVO CON ENCABEZADOS
+                # ======================================================
+                else:
+                    def detectar_columna(cols, claves):
+                        for col in cols:
+                            if any(k in col.lower() for k in claves):
+                                return col
+                        return None
+
+                    col_estructura = detectar_columna(df.columns, ["estructura", "programática"])
+                    col_libramiento = detectar_columna(df.columns, ["libramiento", "número"])
 
                 if not col_estructura or not col_libramiento:
-                    st.error("❌ No se detectaron las columnas necesarias.")
+                    st.error("❌ No se pudieron identificar las columnas necesarias.")
                 else:
                     # ======================================================
                     # UNIFICACIÓN
