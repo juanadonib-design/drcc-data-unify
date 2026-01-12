@@ -31,7 +31,6 @@ st.markdown(
     '</p>',
     unsafe_allow_html=True
 )
-
 st.divider()
 
 # ======================================================
@@ -39,65 +38,22 @@ st.divider()
 # ======================================================
 modo = st.radio(
     "🧭 Selecciona el modo de trabajo",
-    ["🔢 Modo manual (uno por uno)", "📊 Modo múltiple (archivo Excel)"],
+    ["🔁 Modo múltiple (Excel)", "🧩 Modo manual (uno por uno)"],
     horizontal=True
 )
 
 st.divider()
 
 # ======================================================
-# MODO MANUAL
-# ======================================================
-if modo == "🔢 Modo manual (uno por uno)":
-
-    st.subheader("🧩 Unificación manual")
-    st.caption("Recomendado cuando la carga de trabajo es baja")
-
-    col1, col2 = st.columns(2)
-
-    with col1:
-        estructura = st.text_input(
-            "Estructura Programática (12 dígitos)",
-            placeholder="010203040506"
-        )
-
-    with col2:
-        libramiento = st.text_input(
-            "Número de Libramiento",
-            placeholder="12345"
-        )
-
-    if st.button("UNIFICAR"):
-        if not estructura or not libramiento:
-            st.error("❌ Ambos campos son obligatorios")
-        elif not estructura.isdigit() or len(estructura) != 12:
-            st.error("❌ La estructura debe tener exactamente 12 dígitos")
-        else:
-            resultado = (
-                f"{estructura[:4]}."
-                f"{estructura[4:6]}."
-                f"{estructura[8:]}."
-                f"{libramiento}"
-            )
-
-            st.success("✔️ Unificación exitosa")
-
-            # 📋 BOTÓN COPIAR NATIVO
-            st.code(resultado)
-
-# ======================================================
 # MODO MÚLTIPLE
 # ======================================================
-if modo == "📊 Modo múltiple (archivo Excel)":
+if modo.startswith("🔁"):
 
     col1, col2 = st.columns([1, 2], gap="large")
 
     with col1:
         st.info("### 📂 Cargar archivo Excel")
-        uploaded_file = st.file_uploader(
-            "Subir archivo (.xlsx)",
-            type=["xlsx"]
-        )
+        uploaded_file = st.file_uploader("Subir archivo (.xlsx)", type=["xlsx"])
         df = None
 
         if uploaded_file:
@@ -117,7 +73,7 @@ if modo == "📊 Modo múltiple (archivo Excel)":
                 df = pd.read_excel(uploaded_file, header=header_row, dtype=str).fillna("")
                 st.success(f"✅ Encabezados detectados (Fila {header_row + 1})")
 
-                override = st.checkbox("✏️ Cambiar columnas manualmente")
+                override = st.checkbox("✏️ Crear o cambiar encabezados manualmente")
 
             except Exception as e:
                 st.error(f"Error al leer el archivo: {e}")
@@ -126,54 +82,105 @@ if modo == "📊 Modo múltiple (archivo Excel)":
         if df is None:
             st.warning("Esperando archivo para procesar...")
         else:
-            def detectar_columna(cols, claves):
-                for col in cols:
-                    if any(k in col.lower() for k in claves):
-                        return col
-                return None
+            try:
+                # ======================================================
+                # CREACIÓN MANUAL DE ENCABEZADOS
+                # ======================================================
+                if override:
+                    st.info("Selecciona la fila que contiene los nombres de las columnas")
 
-            col_auto_estructura = detectar_columna(df.columns, ["estructura", "programática"])
-            col_auto_libramiento = detectar_columna(df.columns, ["libramiento", "número"])
+                    fila_encabezado = st.number_input(
+                        "Fila de encabezado (empieza en 1)",
+                        min_value=1,
+                        max_value=len(df),
+                        value=1,
+                        step=1
+                    )
 
-            if override:
-                st.dataframe(df.head(20), use_container_width=True)
+                    nuevos_encabezados = df.iloc[fila_encabezado - 1].astype(str)
+                    df.columns = nuevos_encabezados
+                    df = df.iloc[fila_encabezado:].reset_index(drop=True)
 
-                col_estructura = st.selectbox(
-                    "Estructura Programática",
-                    df.columns,
-                    index=df.columns.get_loc(col_auto_estructura)
-                )
+                    st.success("✅ Encabezados creados manualmente")
+                    st.dataframe(df.head(20), use_container_width=True)
 
-                col_libramiento = st.selectbox(
-                    "Número de Libramiento",
-                    df.columns,
-                    index=df.columns.get_loc(col_auto_libramiento)
-                )
-            else:
-                col_estructura = col_auto_estructura
-                col_libramiento = col_auto_libramiento
+                # ======================================================
+                # DETECCIÓN DE COLUMNAS
+                # ======================================================
+                def detectar_columna(cols, claves):
+                    for col in cols:
+                        if any(k in col.lower() for k in claves):
+                            return col
+                    return None
 
-            if not col_estructura or not col_libramiento:
-                st.error("❌ No se pudieron detectar las columnas necesarias.")
-            else:
-                def transformar(fila):
-                    v1 = str(fila[col_estructura]).split('.')[0].zfill(12)
-                    v2 = str(fila[col_libramiento]).split('.')[0]
-                    if v1 == "000000000000" or not v2:
-                        return ""
-                    return f"{v1[:4]}.{v1[4:6]}.{v1[8:]}.{v2}"
+                col_estructura = detectar_columna(df.columns, ["estructura", "programática"])
+                col_libramiento = detectar_columna(df.columns, ["libramiento", "número"])
 
-                resultados = df.apply(transformar, axis=1)
-                validos = resultados[resultados != ""]
-
-                if not validos.empty:
-                    st.success("✔️ Datos unificados correctamente")
-                    st.metric("📊 Registros unificados", len(validos))
-
-                    # 📋 BOTÓN COPIAR NATIVO
-                    st.code(";".join(validos))
+                if not col_estructura or not col_libramiento:
+                    st.error("❌ No se detectaron las columnas necesarias.")
                 else:
-                    st.warning("⚠️ No se encontraron datos válidos.")
+                    # ======================================================
+                    # UNIFICACIÓN
+                    # ======================================================
+                    def transformar(fila):
+                        v1 = str(fila[col_estructura]).split('.')[0].zfill(12)
+                        v2 = str(fila[col_libramiento]).split('.')[0]
+                        if v1 == "000000000000" or not v2:
+                            return ""
+                        return f"{v1[:4]}.{v1[4:6]}.{v1[8:]}.{v2}"
+
+                    resultados = df.apply(transformar, axis=1)
+                    validos = resultados[resultados != ""]
+
+                    if not validos.empty:
+                        resultado_final = ";".join(validos)
+
+                        st.success("✔️ Datos unificados correctamente")
+                        st.metric("📊 Registros unificados", len(validos))
+                        st.code(resultado_final, language=None)
+                    else:
+                        st.warning("⚠️ No se encontraron datos válidos.")
+
+            except Exception as e:
+                st.error(f"Error en unificación: {e}")
+
+# ======================================================
+# MODO MANUAL
+# ======================================================
+if modo.startswith("🧩"):
+
+    st.subheader("🧩 Unificación manual")
+    st.caption("Ideal cuando el volumen de trabajo es bajo")
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        estructura = st.text_input(
+            "Estructura Programática (12 dígitos)",
+            placeholder="Ej: 010203040506"
+        )
+
+    with col2:
+        libramiento = st.text_input(
+            "Número de Libramiento",
+            placeholder="Ej: 12345"
+        )
+
+    if st.button("UNIFICAR"):
+        if not estructura or not libramiento:
+            st.error("❌ Ambos campos son obligatorios")
+        elif not estructura.isdigit() or len(estructura) != 12:
+            st.error("❌ La estructura debe tener exactamente 12 dígitos")
+        else:
+            resultado = (
+                f"{estructura[:4]}."
+                f"{estructura[4:6]}."
+                f"{estructura[8:]}."
+                f"{libramiento}"
+            )
+
+            st.success("✔️ Unificación exitosa")
+            st.code(resultado, language=None)
 
 st.divider()
 st.caption("DRCC DATA UNIFY - Herramienta diseñada para agilizar el proceso de firma en SIGEF")
