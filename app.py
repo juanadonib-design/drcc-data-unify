@@ -1,20 +1,19 @@
 import streamlit as st
 import pandas as pd
 
-# 1. Configuración de la pestaña
+# 1. Configuración
 st.set_page_config(
     page_title="DRCC DATA UNIFY",
     page_icon="📊",
     layout="wide"
 )
 
-# 2. Estilo CSS
+# 2. Estilos
 st.markdown("""
-    <style>
-    .main { background-color: #f8f9fa; }
-    .main-title { color: #1E3A8A; font-size: 42px; font-weight: bold; margin-bottom: 0px; }
-    .sub-title { color: #333; font-size: 20px; font-weight: 600; margin-top: 5px; }
-    </style>
+<style>
+.main-title { color:#1E3A8A; font-size:42px; font-weight:bold; margin-bottom:0; }
+.sub-title { color:#333; font-size:20px; font-weight:600; margin-top:5px; }
+</style>
 """, unsafe_allow_html=True)
 
 # --- ENCABEZADO ---
@@ -38,21 +37,36 @@ with col1:
 
     if uploaded_file:
         try:
-            # --- DETECCIÓN DE FILA DE ENCABEZADOS ---
+            # 🔍 Escaneo inicial
             scan_df = pd.read_excel(uploaded_file, header=None, nrows=6).fillna("")
             keywords = ["estructura", "programática", "libramiento", "número"]
 
-            header_found = max(
+            header_auto = max(
                 range(len(scan_df)),
                 key=lambda i: sum(
-                    any(k in str(celda).lower() for k in keywords)
-                    for celda in scan_df.iloc[i]
+                    any(k in str(c).lower() for k in keywords)
+                    for c in scan_df.iloc[i]
                 )
             )
 
+            st.success(f"✅ Encabezados detectados automáticamente (Fila {header_auto + 1})")
+
+            # 🛠️ OVERRIDE MANUAL
+            override = st.checkbox("✏️ Cambiar encabezado manualmente")
+
+            if override:
+                header_manual = st.selectbox(
+                    "Selecciona la fila del encabezado",
+                    options=list(range(1, 11)),
+                    index=header_auto
+                )
+                header_final = header_manual - 1
+            else:
+                header_final = header_auto
+
+            # 📥 Cargar archivo definitivo
             uploaded_file.seek(0)
-            df = pd.read_excel(uploaded_file, header=header_found, dtype=str).fillna("")
-            st.success(f"✅ Encabezados detectados (Fila {header_found + 1})")
+            df = pd.read_excel(uploaded_file, header=header_final, dtype=str).fillna("")
 
         except Exception as e:
             st.error(f"Error al leer el archivo: {e}")
@@ -62,7 +76,7 @@ with col2:
         st.warning("Esperando archivo para procesar...")
     else:
         try:
-            # --- DETECCIÓN AUTOMÁTICA DE COLUMNAS ---
+            # 🔎 Detección automática de columnas
             def detectar_columna(cols, claves):
                 for col in cols:
                     if any(k in col.lower() for k in claves):
@@ -75,14 +89,12 @@ with col2:
             if not col_estructura or not col_libramiento:
                 st.error("❌ No se pudieron detectar las columnas necesarias.")
             else:
-                # --- UNIFICACIÓN AUTOMÁTICA ---
+                # ⚙️ Unificación automática
                 def transformar(fila):
                     v1 = str(fila[col_estructura]).split('.')[0].zfill(12)
                     v2 = str(fila[col_libramiento]).split('.')[0]
-
                     if v1 == "000000000000" or not v2:
                         return ""
-
                     return f"{v1[:4]}.{v1[4:6]}.{v1[8:]}.{v2}"
 
                 resultados = df.apply(transformar, axis=1)
