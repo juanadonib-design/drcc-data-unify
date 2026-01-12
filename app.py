@@ -31,6 +31,12 @@ st.markdown("""
 # --- ENCABEZADO ---
 st.markdown('<p class="main-title">DRCC DATA UNIFY</p>', unsafe_allow_html=True)
 st.markdown('<p class="sub-title">Creado por Juan Brito | Idea: Chabellys Encarnacion</p>', unsafe_allow_html=True)
+st.markdown(
+    '<p style="color:#555; font-size:16px; margin-top:2px;">'
+    'Ahorra tiempo al unificar estructuras programáticas y libramientos en SIGEF.'
+    '</p>',
+    unsafe_allow_html=True
+)
 st.divider()
 
 # --- CUERPO ---
@@ -65,14 +71,10 @@ with col1:
 
             header_found = mejor_fila
 
-            # Carga real del archivo usando la fila detectada
             uploaded_file.seek(0)
             df = pd.read_excel(uploaded_file, header=header_found, dtype=str).fillna("")
             st.success(f"✅ Encabezados detectados (Fila {header_found + 1})")
 
-            # =========================
-            # CONFIGURACIÓN
-            # =========================
             st.write("### ⚙️ Configuración")
 
             def auto_detect(columns, target_keys):
