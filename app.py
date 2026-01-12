@@ -25,7 +25,6 @@ st.markdown("""
     .main-title { color: #1E3A8A; font-size: 42px; font-weight: bold; margin-bottom: 0px; line-height: 1;}
     .sub-title { color: #333; font-size: 20px; font-weight: 600; margin-top: 5px; margin-bottom: 0px;}
     .credits { color: #666; font-style: italic; font-size: 16px; margin-top: 0px;}
-    /* El estilo del área de código nativa */
     code {
         color: #202124 !important;
     }
@@ -59,9 +58,23 @@ with col1:
         
         st.write("### ⚙️ Configuración")
         
-        # Actualización de nombres de etiquetas en los selectores
-        col_larga = st.selectbox("Estructura Programatica", df.columns)
-        col_sufijo = st.selectbox("Numero de Libramiento", df.columns)
+        # --- LÓGICA DE DETECCIÓN AUTOMÁTICA ---
+        def buscar_columna(lista_columnas, palabras_clave):
+            for i, col in enumerate(lista_columnas):
+                if any(palabra.lower() in str(col).lower() for palabra in palabras_clave):
+                    return i
+            return 0
+
+        # Intentamos pre-seleccionar automáticamente buscando coincidencias
+        idx_estructura = buscar_columna(df.columns, ["estructura", "programatica", "codigo"])
+        idx_libramiento = buscar_columna(df.columns, ["libramiento", "numero", "sufijo"])
+        
+        # Selectores con detección automática mediante el parámetro 'index'
+        col_larga = st.selectbox("Estructura Programatica", df.columns, index=idx_estructura)
+        col_sufijo = st.selectbox("Numero de Libramiento", df.columns, index=idx_libramiento)
+        
+        if idx_estructura != 0 or idx_libramiento != 0:
+            st.toast("Columnas detectadas automáticamente", icon="🔍")
         
         btn_procesar = st.button("UNIFICAR PARA SIGEF")
 
@@ -74,20 +87,15 @@ with col2:
         
         if btn_procesar:
             try:
-                # LOGICA RESTAURADA: Segmentación precisa de la estructura
                 def transformar_seguro(fila):
-                    # Uso de las variables seleccionadas con los nuevos nombres
                     val1 = str(fila[col_larga]).strip().split('.')[0] 
                     val2 = str(fila[col_sufijo]).strip().split('.')[0]
                     
                     if not val1 or val1.lower() == 'nan': return ""
                     
-                    # Rellenar a 12 dígitos
                     val1 = val1.zfill(12) 
-
-                    # Segmentación para formato XXXX.XX.XXXX
-                    parte_a = val1[:6]  # Los primeros 6 dígitos
-                    parte_b = val1[8:]  # Del dígito 9 al 12 (saltando 7 y 8)
+                    parte_a = val1[:6] 
+                    parte_b = val1[8:] 
                     
                     bloque1 = parte_a[:4]
                     bloque2 = parte_a[4:6]
@@ -98,7 +106,6 @@ with col2:
                 resultados = df.apply(transformar_seguro, axis=1)
                 consolidado_texto = ";".join(resultados[resultados != ""].astype(str))
 
-                # --- DISEÑO DE RESULTADO SOLICITADO ---
                 st.markdown("""
                     <div style="background-color: #f0fff4; border: 1px solid #c6f6d5; padding: 20px; border-radius: 10px; text-align: center; margin-bottom: 20px;">
                         <span style="color: #2f855a; font-size: 50px;">✔️</span>
@@ -108,7 +115,6 @@ with col2:
 
                 st.markdown("<p style='font-size: 18px; font-weight: 500; color: #333; margin-bottom: 5px;'>Copia y pega este código directamente en SIGEF:</p>", unsafe_allow_html=True)
                 
-                # Botón de copiar nativo mediante st.code
                 st.code(consolidado_texto, language=None)
                 
                 # Preparar Excel para descarga
@@ -133,5 +139,3 @@ with col2:
 
 st.divider()
 st.caption("DRCC DATA UNIFY - Herramienta diseñada para agilizar el proceso de firma en SIGEF")
-
-
