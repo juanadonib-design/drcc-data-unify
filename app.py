@@ -168,22 +168,33 @@ if modo.startswith("🧩"):
 
     with col1:
         estructura = st.text_input(
-            "Estructura Programática (12 dígitos)",
+            "Estructura Programática (12 dígitos numéricos)",
             placeholder="Ej: 010203040506"
         )
 
     with col2:
         libramiento = st.text_input(
-            "Número de Libramiento",
-            placeholder="Ej: 12345"
+            "Número de Libramiento (4 o 5 dígitos)",
+            placeholder="Ej: 1234 o 12345"
         )
 
-    # 🔄 UNIFICACIÓN AUTOMÁTICA
-    if estructura and libramiento:
+    # 🔄 VALIDACIÓN Y UNIFICACIÓN AUTOMÁTICA
+    if estructura or libramiento:
 
+        errores = False
+
+        # Validar estructura programática
         if not estructura.isdigit() or len(estructura) != 12:
-            st.error("❌ La estructura debe tener exactamente 12 dígitos numéricos")
-        else:
+            st.error("❌ La Estructura Programática debe contener solo números y exactamente 12 dígitos")
+            errores = True
+
+        # Validar número de libramiento
+        if not libramiento.isdigit() or not (4 <= len(libramiento) <= 5):
+            st.error("❌ El Número de Libramiento debe contener solo números y tener entre 4 y 5 dígitos")
+            errores = True
+
+        # Unificar solo si todo es válido
+        if not errores:
             resultado = (
                 f"{estructura[:4]}."
                 f"{estructura[4:6]}."
@@ -195,6 +206,8 @@ if modo.startswith("🧩"):
             st.code(resultado, language=None)
 
 
+
 st.divider()
 st.caption("DRCC DATA UNIFY - Herramienta diseñada para agilizar el proceso de firma en SIGEF")
+
 
