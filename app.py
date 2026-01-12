@@ -26,7 +26,7 @@ st.markdown("""
     .sub-title { color: #333; font-size: 20px; font-weight: 600; margin-top: 5px; margin-bottom: 0px;}
     code { color: #202124 !important; }
     </style>
-    """, unsafe_allow_html=True)
+""", unsafe_allow_html=True)
 
 # --- ENCABEZADO ---
 st.markdown('<p class="main-title">DRCC DATA UNIFY</p>', unsafe_allow_html=True)
@@ -40,29 +40,41 @@ with col1:
     st.info("### 📂 Cargar Datos")
     uploaded_file = st.file_uploader("Subir archivo Excel (.xlsx)", type=["xlsx"])
     
-    df = None 
+    df = None
     
     if uploaded_file:
         try:
-            # ESCANEO CORREGIDO: Buscamos la fila del encabezado correctamente
-            scan_df = pd.read_excel(uploaded_file, header=None, nrows=5).fillna("")
+            # =========================
+            # DETECCIÓN INTELIGENTE DE ENCABEZADOS
+            # =========================
+            scan_df = pd.read_excel(uploaded_file, header=None, nrows=6).fillna("")
             keywords = ["estructura", "programática", "libramiento", "número", "información"]
-            
-            header_found = 0
+
+            mejor_fila = 0
+            mejor_score = 0
+
             for i in range(len(scan_df)):
-                # Convertimos cada celda de la fila a texto individualmente antes de buscar
-                fila_como_texto = [str(celda).lower() for celda in scan_df.iloc[i].values]
-                if any(any(k in texto for k in keywords) for texto in fila_como_texto):
-                    header_found = i
-                    break
-            
-            # Carga real de los datos desde la fila detectada
+                score = 0
+                for celda in scan_df.iloc[i].values:
+                    texto = str(celda).lower()
+                    if any(k in texto for k in keywords):
+                        score += 1
+                if score > mejor_score:
+                    mejor_score = score
+                    mejor_fila = i
+
+            header_found = mejor_fila
+
+            # Carga real del archivo usando la fila detectada
             uploaded_file.seek(0)
             df = pd.read_excel(uploaded_file, header=header_found, dtype=str).fillna("")
             st.success(f"✅ Encabezados detectados (Fila {header_found + 1})")
-            
+
+            # =========================
+            # CONFIGURACIÓN
+            # =========================
             st.write("### ⚙️ Configuración")
-            
+
             def auto_detect(columns, target_keys):
                 for i, col in enumerate(columns):
                     col_str = str(col).lower()
@@ -70,15 +82,23 @@ with col1:
                         return i
                 return 0
 
-            # Detección basada en tus imágenes
             idx_est = auto_detect(df.columns, ["estructura", "programática"])
             idx_lib = auto_detect(df.columns, ["libramiento", "número"])
-            
-            col_larga = st.selectbox("Estructura Programática", df.columns, index=idx_est)
-            col_sufijo = st.selectbox("Número de Libramiento", df.columns, index=idx_lib)
-            
+
+            col_larga = st.selectbox(
+                "Estructura Programática",
+                df.columns,
+                index=idx_est
+            )
+
+            col_sufijo = st.selectbox(
+                "Número de Libramiento",
+                df.columns,
+                index=idx_lib
+            )
+
             btn_procesar = st.button("UNIFICAR PARA SIGEF")
-            
+
         except Exception as e:
             st.error(f"Error al leer el archivo: {e}")
 
@@ -88,19 +108,16 @@ with col2:
     else:
         st.write("### 🔍 Vista Previa de Datos")
         st.dataframe(df.head(10), use_container_width=True)
-        
+
         if 'btn_procesar' in locals() and btn_procesar:
             try:
                 def transformar(fila):
-                    # Limpieza y formateo a 12 dígitos
                     v1 = str(fila[col_larga]).strip().split('.')[0].zfill(12)
                     v2 = str(fila[col_sufijo]).strip().split('.')[0]
-                    
-                    # Si la fila está vacía o es inválida, se salta
-                    if v1 == "000000000000" or not v2 or v2.lower() == 'nan': 
+
+                    if v1 == "000000000000" or not v2 or v2.lower() == 'nan':
                         return ""
-                    
-                    # Formato final SIGEF: XXXX.XX.XXXX.Sufijo
+
                     return f"{v1[:4]}.{v1[4:6]}.{v1[8:]}.{v2}"
 
                 resultados = df.apply(transformar, axis=1)
@@ -112,6 +129,7 @@ with col2:
                     st.balloons()
                 else:
                     st.warning("⚠️ No se encontraron datos válidos para unificar.")
+
             except Exception as e:
                 st.error(f"Error en unificación: {e}")
 
