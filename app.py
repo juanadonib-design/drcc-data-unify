@@ -71,9 +71,11 @@ if modo.startswith("🔁"):
 
                 uploaded_file.seek(0)
                 df = pd.read_excel(uploaded_file, header=header_row, dtype=str).fillna("")
-                st.success(f"✅ Archivo cargado correctamente")
+                st.success("✅ Archivo cargado correctamente")
 
-                override = st.checkbox("✏️ El archivo no tiene encabezados / Cambiar columnas manualmente")
+                override = st.checkbox(
+                    "✏️ El archivo no tiene encabezados / Cambiar columnas manualmente"
+                )
 
             except Exception as e:
                 st.error(f"Error al leer el archivo: {e}")
@@ -87,25 +89,30 @@ if modo.startswith("🔁"):
                 # CASO: ARCHIVO SIN ENCABEZADOS
                 # ======================================================
                 if override:
-                    st.info("El archivo no contiene nombres de columnas. Se asignarán automáticamente.")
+                    st.info("El archivo no contiene encabezados. Se asignarán automáticamente.")
 
-                    # 1️⃣ Vista previa
-                    st.write("👀 Vista previa de los datos")
+                    # 1️⃣ CREAR NOMBRES AUTOMÁTICOS PRIMERO
+                    df.columns = [f"Columna_{i+1}" for i in range(len(df.columns))]
+
+                    # 2️⃣ VISTA PREVIA YA CON NOMBRES
+                    st.subheader("👀 Vista previa de los datos")
                     st.dataframe(df.head(20), use_container_width=True)
 
-                    # 2️⃣ Crear nombres automáticos
-                    df.columns = [f"Columna_{i+1}" for i in range(len(df.columns))]
                     st.success("✅ Columnas creadas automáticamente")
 
-                    # 3️⃣ Selección manual de columnas clave
+                    # 3️⃣ DESPLEGABLES USANDO LOS MISMOS NOMBRES
+                    columnas_disponibles = list(df.columns)
+
                     col_estructura = st.selectbox(
                         "Selecciona la columna de Estructura Programática",
-                        df.columns
+                        columnas_disponibles,
+                        index=0
                     )
 
                     col_libramiento = st.selectbox(
                         "Selecciona la columna de Número de Libramiento",
-                        df.columns
+                        columnas_disponibles,
+                        index=1 if len(columnas_disponibles) > 1 else 0
                     )
 
                 # ======================================================
