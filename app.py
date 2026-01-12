@@ -40,23 +40,23 @@ with col1:
     st.info("### 📂 Cargar Datos")
     uploaded_file = st.file_uploader("Subir archivo Excel (.xlsx)", type=["xlsx"])
     
-    # Inicializamos df como None para evitar el NameError
     df = None 
     
     if uploaded_file:
         try:
-            # Escaneo de las primeras 5 filas para detectar el encabezado real
-            scan_df = pd.read_excel(uploaded_file, header=None, nrows=5)
-            keywords = ["estructura", "programática", "libramiento", "número"]
+            # ESCANEO CORREGIDO: Buscamos la fila del encabezado correctamente
+            scan_df = pd.read_excel(uploaded_file, header=None, nrows=5).fillna("")
+            keywords = ["estructura", "programática", "libramiento", "número", "información"]
             
             header_found = 0
             for i in range(len(scan_df)):
-                fila_unida = " ".join(scan_df.iloc[i].astype(str).lower())
-                if any(k in fila_unida for k in keywords):
+                # Convertimos cada celda de la fila a texto individualmente antes de buscar
+                fila_como_texto = [str(celda).lower() for celda in scan_df.iloc[i].values]
+                if any(any(k in texto for k in keywords) for texto in fila_como_texto):
                     header_found = i
                     break
             
-            # Carga real de los datos
+            # Carga real de los datos desde la fila detectada
             uploaded_file.seek(0)
             df = pd.read_excel(uploaded_file, header=header_found, dtype=str).fillna("")
             st.success(f"✅ Encabezados detectados (Fila {header_found + 1})")
@@ -70,6 +70,7 @@ with col1:
                         return i
                 return 0
 
+            # Detección basada en tus imágenes
             idx_est = auto_detect(df.columns, ["estructura", "programática"])
             idx_lib = auto_detect(df.columns, ["libramiento", "número"])
             
@@ -86,23 +87,31 @@ with col2:
         st.warning("Esperando archivo para procesar...")
     else:
         st.write("### 🔍 Vista Previa de Datos")
-        # Ahora df está garantizado que existe si entramos aquí
         st.dataframe(df.head(10), use_container_width=True)
         
         if 'btn_procesar' in locals() and btn_procesar:
             try:
                 def transformar(fila):
+                    # Limpieza y formateo a 12 dígitos
                     v1 = str(fila[col_larga]).strip().split('.')[0].zfill(12)
                     v2 = str(fila[col_sufijo]).strip().split('.')[0]
-                    if v1 == "000000000000" or not v2 or v2.lower() == 'nan': return ""
+                    
+                    # Si la fila está vacía o es inválida, se salta
+                    if v1 == "000000000000" or not v2 or v2.lower() == 'nan': 
+                        return ""
+                    
+                    # Formato final SIGEF: XXXX.XX.XXXX.Sufijo
                     return f"{v1[:4]}.{v1[4:6]}.{v1[8:]}.{v2}"
 
                 resultados = df.apply(transformar, axis=1)
                 consolidado = ";".join(resultados[resultados != ""].astype(str))
 
-                st.success("✔️ Proceso Exitoso")
-                st.code(consolidado, language=None)
-                st.balloons()
+                if consolidado:
+                    st.success("✔️ Proceso Exitoso")
+                    st.code(consolidado, language=None)
+                    st.balloons()
+                else:
+                    st.warning("⚠️ No se encontraron datos válidos para unificar.")
             except Exception as e:
                 st.error(f"Error en unificación: {e}")
 
