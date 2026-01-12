@@ -99,8 +99,6 @@ with col1:
                 index=idx_lib
             )
 
-            btn_procesar = st.button("UNIFICAR PARA SIGEF")
-
         except Exception as e:
             st.error(f"Error al leer el archivo: {e}")
 
@@ -111,29 +109,29 @@ with col2:
         st.write("### 🔍 Vista Previa de Datos")
         st.dataframe(df.head(10), use_container_width=True)
 
-        if 'btn_procesar' in locals() and btn_procesar:
-            try:
-                def transformar(fila):
-                    v1 = str(fila[col_larga]).strip().split('.')[0].zfill(12)
-                    v2 = str(fila[col_sufijo]).strip().split('.')[0]
+        try:
+            def transformar(fila):
+                v1 = str(fila[col_larga]).strip().split('.')[0].zfill(12)
+                v2 = str(fila[col_sufijo]).strip().split('.')[0]
 
-                    if v1 == "000000000000" or not v2 or v2.lower() == 'nan':
-                        return ""
+                if v1 == "000000000000" or not v2 or v2.lower() == 'nan':
+                    return ""
 
-                    return f"{v1[:4]}.{v1[4:6]}.{v1[8:]}.{v2}"
+                return f"{v1[:4]}.{v1[4:6]}.{v1[8:]}.{v2}"
 
-                resultados = df.apply(transformar, axis=1)
-                consolidado = ";".join(resultados[resultados != ""].astype(str))
+            resultados = df.apply(transformar, axis=1)
+            resultados_validos = resultados[resultados != ""]
+            consolidado = ";".join(resultados_validos.astype(str))
 
-                if consolidado:
-                    st.success("✔️ Proceso Exitoso")
-                    st.code(consolidado, language=None)
-                    st.balloons()
-                else:
-                    st.warning("⚠️ No se encontraron datos válidos para unificar.")
+            if consolidado:
+                st.success("✔️ Datos unificados automáticamente")
+                st.metric("📊 Registros unificados", len(resultados_validos))
+                st.code(consolidado, language=None)
+            else:
+                st.warning("⚠️ No se encontraron datos válidos para unificar.")
 
-            except Exception as e:
-                st.error(f"Error en unificación: {e}")
+        except Exception as e:
+            st.error(f"Error en unificación: {e}")
 
 st.divider()
 st.caption("DRCC DATA UNIFY - Herramienta diseñada para agilizar el proceso de firma en SIGEF")
