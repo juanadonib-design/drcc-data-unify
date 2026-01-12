@@ -120,3 +120,47 @@ with col2:
 
 st.divider()
 st.caption("DRCC DATA UNIFY - Herramienta diseñada para agilizar el proceso de firma en SIGEF")
+
+
+# ======================================================
+# PÁGINA MANUAL – UNIFICACIÓN UNA POR UNA
+# ======================================================
+if st.session_state.pagina == "manual":
+    st.divider()
+    st.subheader("🧩 Unificación manual (una por una)")
+    st.caption("Modo recomendado cuando el volumen de trabajo es bajo")
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        estructura = st.text_input(
+            "Estructura Programática (12 dígitos)",
+            placeholder="Ej: 010203040506"
+        )
+
+    with col2:
+        libramiento = st.text_input(
+            "Número de Libramiento",
+            placeholder="Ej: 12345"
+        )
+
+    if st.button("UNIFICAR"):
+        if not estructura or not libramiento:
+            st.error("❌ Ambos campos son obligatorios")
+        elif not estructura.isdigit() or len(estructura) != 12:
+            st.error("❌ La estructura debe tener exactamente 12 dígitos")
+        else:
+            resultado = (
+                f"{estructura[:4]}."
+                f"{estructura[4:6]}."
+                f"{estructura[8:]}."
+                f"{libramiento}"
+            )
+            st.success("✔️ Unificación exitosa")
+            st.code(resultado, language=None)
+
+    st.button(
+        "⬅️ Volver al modo masivo",
+        on_click=lambda: st.session_state.update({"pagina": "masivo"})
+    )
+
