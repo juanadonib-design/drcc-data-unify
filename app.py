@@ -61,9 +61,6 @@ with col2:
     if df is None:
         st.warning("Esperando archivo para procesar...")
     else:
-        st.write("### 🔍 Vista Previa de Datos")
-        st.dataframe(df.head(10), use_container_width=True)
-
         try:
             # --- DETECCIÓN AUTOMÁTICA DE COLUMNAS ---
             def detectar_columna(cols, claves):
