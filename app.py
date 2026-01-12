@@ -37,11 +37,11 @@ with col1:
 
     if uploaded_file:
         try:
-            # 🔍 Escaneo inicial
+            # 🔍 Detección de encabezado
             scan_df = pd.read_excel(uploaded_file, header=None, nrows=6).fillna("")
             keywords = ["estructura", "programática", "libramiento", "número"]
 
-            header_auto = max(
+            header_row = max(
                 range(len(scan_df)),
                 key=lambda i: sum(
                     any(k in str(c).lower() for k in keywords)
@@ -49,24 +49,12 @@ with col1:
                 )
             )
 
-            st.success(f"✅ Encabezados detectados automáticamente (Fila {header_auto + 1})")
-
-            # 🛠️ OVERRIDE MANUAL
-            override = st.checkbox("✏️ Cambiar encabezado manualmente")
-
-            if override:
-                header_manual = st.selectbox(
-                    "Selecciona la fila del encabezado",
-                    options=list(range(1, 11)),
-                    index=header_auto
-                )
-                header_final = header_manual - 1
-            else:
-                header_final = header_auto
-
-            # 📥 Cargar archivo definitivo
             uploaded_file.seek(0)
-            df = pd.read_excel(uploaded_file, header=header_final, dtype=str).fillna("")
+            df = pd.read_excel(uploaded_file, header=header_row, dtype=str).fillna("")
+            st.success(f"✅ Encabezados detectados (Fila {header_row + 1})")
+
+            # 🔧 OVERRIDE MANUAL POR COLUMNAS
+            override = st.checkbox("✏️ Cambiar encabezado manualmente")
 
         except Exception as e:
             st.error(f"Error al leer el archivo: {e}")
@@ -83,13 +71,33 @@ with col2:
                         return col
                 return None
 
-            col_estructura = detectar_columna(df.columns, ["estructura", "programática"])
-            col_libramiento = detectar_columna(df.columns, ["libramiento", "número"])
+            col_auto_estructura = detectar_columna(df.columns, ["estructura", "programática"])
+            col_auto_libramiento = detectar_columna(df.columns, ["libramiento", "número"])
+
+            # 🛠️ MODO MANUAL
+            if override:
+                st.write("### 👀 Vista previa del documento")
+                st.dataframe(df.head(20), use_container_width=True)
+
+                col_estructura = st.selectbox(
+                    "Selecciona la columna de Estructura Programática",
+                    df.columns,
+                    index=df.columns.get_loc(col_auto_estructura)
+                )
+
+                col_libramiento = st.selectbox(
+                    "Selecciona la columna de Número de Libramiento",
+                    df.columns,
+                    index=df.columns.get_loc(col_auto_libramiento)
+                )
+            else:
+                col_estructura = col_auto_estructura
+                col_libramiento = col_auto_libramiento
 
             if not col_estructura or not col_libramiento:
                 st.error("❌ No se pudieron detectar las columnas necesarias.")
             else:
-                # ⚙️ Unificación automática
+                # ⚙️ UNIFICACIÓN
                 def transformar(fila):
                     v1 = str(fila[col_estructura]).split('.')[0].zfill(12)
                     v2 = str(fila[col_libramiento]).split('.')[0]
@@ -101,7 +109,7 @@ with col2:
                 validos = resultados[resultados != ""]
 
                 if not validos.empty:
-                    st.success("✔️ Datos unificados automáticamente")
+                    st.success("✔️ Datos unificados correctamente")
                     st.metric("📊 Registros unificados", len(validos))
                     st.code(";".join(validos), language=None)
                 else:
