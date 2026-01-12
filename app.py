@@ -1,115 +1,122 @@
 import streamlit as st
 import pandas as pd
 
-st.set_page_config(page_title="DRCC DATA UNIFY", layout="centered")
+# 1. Configuración
+st.set_page_config(
+    page_title="DRCC DATA UNIFY",
+    page_icon="📊",
+    layout="wide"
+)
 
-# =========================
-# ENCABEZADO
-# =========================
+# 2. Estilos
+st.markdown("""
+<style>
+.main-title { color:#1E3A8A; font-size:42px; font-weight:bold; margin-bottom:0; }
+.sub-title { color:#333; font-size:20px; font-weight:600; margin-top:5px; }
+</style>
+""", unsafe_allow_html=True)
+
+# --- ENCABEZADO ---
 st.markdown('<p class="main-title">DRCC DATA UNIFY</p>', unsafe_allow_html=True)
 st.markdown('<p class="sub-title">Creado por Juan Brito | Idea: Chabellys Encarnacion</p>', unsafe_allow_html=True)
 st.markdown(
-    '<p style="color:#555; font-size:16px; margin-top:2px;">'
+    '<p style="color:#555; font-size:16px;">'
     'Ahorra tiempo al unificar estructuras programáticas y libramientos en SIGEF.'
     '</p>',
     unsafe_allow_html=True
 )
 st.divider()
 
-# =========================
-# SESSION STATE
-# =========================
-if "archivo" not in st.session_state:
-    st.session_state.archivo = None
+# --- CUERPO ---
+col1, col2 = st.columns([1, 2], gap="large")
 
-if "resultado" not in st.session_state:
-    st.session_state.resultado = None
+with col1:
+    st.info("### 📂 Cargar Datos")
+    uploaded_file = st.file_uploader("Subir archivo Excel (.xlsx)", type=["xlsx"])
+    df = None
 
-# =========================
-# FUNCIONES
-# =========================
-def validar_datos(df, columnas):
-    errores = []
-    filas_validas = []
+    if uploaded_file:
+        try:
+            # 🔍 Detección de encabezado
+            scan_df = pd.read_excel(uploaded_file, header=None, nrows=6).fillna("")
+            keywords = ["estructura", "programática", "libramiento", "número"]
 
-    for idx, row in df.iterrows():
-        fila_ok = True
-        for col in columnas:
-            if col not in df.columns:
-                errores.append(f"No se detectó la columna '{col}'")
-                return errores, pd.DataFrame()
+            header_row = max(
+                range(len(scan_df)),
+                key=lambda i: sum(
+                    any(k in str(c).lower() for k in keywords)
+                    for c in scan_df.iloc[i]
+                )
+            )
 
-            valor = row[col]
+            uploaded_file.seek(0)
+            df = pd.read_excel(uploaded_file, header=header_row, dtype=str).fillna("")
+            st.success(f"✅ Encabezados detectados (Fila {header_row + 1})")
 
-            if pd.isna(valor) or str(valor).strip() == "":
-                errores.append(f"Campo vacío en fila {idx + 1}, columna '{col}'")
-                fila_ok = False
+            # 🔧 OVERRIDE MANUAL POR COLUMNAS
+            override = st.checkbox("✏️ Cambiar encabezado manualmente")
 
-            if not str(valor).isdigit():
-                errores.append(f"Formato inválido en fila {idx + 1}, columna '{col}'")
-                fila_ok = False
+        except Exception as e:
+            st.error(f"Error al leer el archivo: {e}")
 
-            if len(str(valor)) > 10:
-                errores.append(f"Longitud incorrecta en fila {idx + 1}, columna '{col}'")
-                fila_ok = False
+with col2:
+    if df is None:
+        st.warning("Esperando archivo para procesar...")
+    else:
+        try:
+            # 🔎 Detección automática de columnas
+            def detectar_columna(cols, claves):
+                for col in cols:
+                    if any(k in col.lower() for k in claves):
+                        return col
+                return None
 
-        if fila_ok:
-            filas_validas.append(row)
+            col_auto_estructura = detectar_columna(df.columns, ["estructura", "programática"])
+            col_auto_libramiento = detectar_columna(df.columns, ["libramiento", "número"])
 
-    return errores, pd.DataFrame(filas_validas)
+            # 🛠️ MODO MANUAL
+            if override:
+                st.write("### 👀 Vista previa del documento")
+                st.dataframe(df.head(20), use_container_width=True)
 
-def unificar_datos(df, columnas):
-    return df[columnas].astype(str).agg("".join, axis=1)
+                col_estructura = st.selectbox(
+                    "Selecciona la columna de Estructura Programática",
+                    df.columns,
+                    index=df.columns.get_loc(col_auto_estructura)
+                )
 
-# =========================
-# CARGA DE ARCHIVO
-# =========================
-archivo = st.file_uploader("Sube tu archivo Excel", type=["xlsx"])
+                col_libramiento = st.selectbox(
+                    "Selecciona la columna de Número de Libramiento",
+                    df.columns,
+                    index=df.columns.get_loc(col_auto_libramiento)
+                )
+            else:
+                col_estructura = col_auto_estructura
+                col_libramiento = col_auto_libramiento
 
-if archivo:
-    st.session_state.archivo = archivo
-    df = pd.read_excel(archivo)
+            if not col_estructura or not col_libramiento:
+                st.error("❌ No se pudieron detectar las columnas necesarias.")
+            else:
+                # ⚙️ UNIFICACIÓN
+                def transformar(fila):
+                    v1 = str(fila[col_estructura]).split('.')[0].zfill(12)
+                    v2 = str(fila[col_libramiento]).split('.')[0]
+                    if v1 == "000000000000" or not v2:
+                        return ""
+                    return f"{v1[:4]}.{v1[4:6]}.{v1[8:]}.{v2}"
 
-    # Columnas esperadas (ajusta si es necesario)
-    columnas_esperadas = df.columns.tolist()
+                resultados = df.apply(transformar, axis=1)
+                validos = resultados[resultados != ""]
 
-    # =========================
-    # VALIDACIÓN
-    # =========================
-    errores, df_valido = validar_datos(df, columnas_esperadas)
+                if not validos.empty:
+                    st.success("✔️ Datos unificados correctamente")
+                    st.metric("📊 Registros unificados", len(validos))
+                    st.code(";".join(validos), language=None)
+                else:
+                    st.warning("⚠️ No se encontraron datos válidos.")
 
-    if errores:
-        st.subheader("Errores detectados")
-        for error in errores:
-            st.error(error)
-        st.stop()
+        except Exception as e:
+            st.error(f"Error en unificación: {e}")
 
-    # =========================
-    # UNIFICACIÓN AUTOMÁTICA
-    # =========================
-    resultado = unificar_datos(df_valido, columnas_esperadas)
-    st.session_state.resultado = resultado
-
-    # =========================
-    # INDICADORES VISUALES
-    # =========================
-    total_filas = len(df)
-    filas_validas = len(df_valido)
-    filas_descartadas = total_filas - filas_validas
-
-    col1, col2, col3 = st.columns(3)
-    col1.metric("Total de filas", total_filas)
-    col2.metric("Filas válidas", filas_validas)
-    col3.metric("Filas descartadas", filas_descartadas)
-
-    st.success("Datos unificados correctamente")
-
-    # =========================
-    # DESCARGA
-    # =========================
-    st.download_button(
-        label="Descargar resultado",
-        data="\n".join(resultado),
-        file_name="estructura_unificada.txt",
-        mime="text/plain"
-    )
+st.divider()
+st.caption("DRCC DATA UNIFY - Herramienta diseñada para agilizar el proceso de firma en SIGEF")
