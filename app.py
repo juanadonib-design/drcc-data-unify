@@ -19,66 +19,12 @@ st.set_page_config(
 )
 
 # ======================================================
-# ESTILOS AVANZADOS (DISEÑO PROFESIONAL)
+# ESTILOS
 # ======================================================
 st.markdown("""
 <style>
-
-/* Fondo general */
-.stApp {
-    background-color: #f5f7fb;
-}
-
-/* Títulos */
-.main-title {
-    color:#1E3A8A;
-    font-size:42px;
-    font-weight:800;
-    margin-bottom:0;
-}
-
-.sub-title {
-    color:#374151;
-    font-size:18px;
-    font-weight:600;
-    margin-top:5px;
-}
-
-/* Tarjetas */
-.card {
-    background-color: white;
-    padding: 22px;
-    border-radius: 14px;
-    box-shadow: 0px 6px 16px rgba(0,0,0,0.08);
-    margin-bottom: 22px;
-}
-
-/* Separador */
-.divider {
-    height: 2px;
-    background-color: #e5e7eb;
-    margin: 30px 0;
-}
-
-/* Botones */
-.stButton > button {
-    background-color: #2563eb;
-    color: white;
-    border-radius: 10px;
-    padding: 10px 18px;
-    font-weight: 600;
-    border: none;
-}
-
-.stButton > button:hover {
-    background-color: #1d4ed8;
-}
-
-/* Inputs */
-input, textarea, select {
-    border-radius: 8px !important;
-}
-
+.main-title { color:#1E3A8A; font-size:42px; font-weight:bold; margin-bottom:0; }
+.sub-title { color:#333; font-size:20px; font-weight:600; margin-top:5px; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -93,19 +39,18 @@ st.markdown(
     '</p>',
     unsafe_allow_html=True
 )
-
-st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
+st.divider()
 
 # ======================================================
 # SELECCIÓN DE MODO
 # ======================================================
-st.markdown('<div class="card">', unsafe_allow_html=True)
 modo = st.radio(
     "🧭 Selecciona el modo de trabajo",
     ["🔁 Modo múltiple (Excel)", "🧩 Modo manual (uno por uno)"],
     horizontal=True
 )
-st.markdown('</div>', unsafe_allow_html=True)
+
+st.divider()
 
 # ======================================================
 # MODO MÚLTIPLE
@@ -115,8 +60,7 @@ if modo.startswith("🔁"):
     col1, col2 = st.columns([1, 2], gap="large")
 
     with col1:
-        st.markdown('<div class="card">', unsafe_allow_html=True)
-        st.subheader("📂 Cargar archivo Excel")
+        st.info("### 📂 Cargar archivo Excel")
         uploaded_file = st.file_uploader("Subir archivo (.xlsx)", type=["xlsx"])
         df = None
 
@@ -143,17 +87,15 @@ if modo.startswith("🔁"):
 
             except Exception as e:
                 st.error(f"Error al leer el archivo: {e}")
-        st.markdown('</div>', unsafe_allow_html=True)
 
     with col2:
-        st.markdown('<div class="card">', unsafe_allow_html=True)
-
         if df is None:
             st.warning("Esperando archivo para procesar...")
         else:
             try:
                 if override:
                     st.info("El archivo no contiene encabezados. Se asignarán automáticamente.")
+
                     df.columns = [f"Columna_{i+1}" for i in range(len(df.columns))]
 
                     st.subheader("👀 Vista previa de los datos")
@@ -204,14 +146,11 @@ if modo.startswith("🔁"):
             except Exception as e:
                 st.error(f"Error en unificación: {e}")
 
-        st.markdown('</div>', unsafe_allow_html=True)
-
 # ======================================================
-# MODO MANUAL
+# MODO MANUAL (AUTOMÁTICO + BLOQUEO DE LETRAS)
 # ======================================================
 if modo.startswith("🧩"):
 
-    st.markdown('<div class="card">', unsafe_allow_html=True)
     st.subheader("🧩 Unificación manual")
     st.caption("Ideal cuando el volumen de trabajo es bajo")
 
@@ -238,7 +177,9 @@ if modo.startswith("🧩"):
     estructura = st.session_state.get("estructura", "")
     libramiento = st.session_state.get("libramiento", "")
 
+    # 🔄 VALIDACIÓN + UNIFICACIÓN AUTOMÁTICA
     if estructura and libramiento:
+
         errores = False
 
         if len(estructura) != 12:
@@ -260,10 +201,5 @@ if modo.startswith("🧩"):
             st.success("✔️ Unificación automática exitosa")
             st.code(resultado, language=None)
 
-    st.markdown('</div>', unsafe_allow_html=True)
-
-# ======================================================
-# FOOTER
-# ======================================================
-st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
+st.divider()
 st.caption("DRCC DATA UNIFY - Herramienta diseñada para agilizar el proceso de firma en SIGEF")
