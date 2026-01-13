@@ -1,5 +1,13 @@
 import streamlit as st
 import pandas as pd
+import re
+
+# ======================================================
+# FUNCIÓN: BLOQUEAR LETRAS (SOLO NÚMEROS)
+# ======================================================
+def solo_numeros(key):
+    valor = st.session_state.get(key, "")
+    st.session_state[key] = re.sub(r"\D", "", valor)
 
 # ======================================================
 # CONFIGURACIÓN
@@ -71,9 +79,11 @@ if modo.startswith("🔁"):
 
                 uploaded_file.seek(0)
                 df = pd.read_excel(uploaded_file, header=header_row, dtype=str).fillna("")
-                st.success(f"✅ Encabezados detectados (Fila {header_row + 1})")
+                st.success("✅ Archivo cargado correctamente")
 
-                override = st.checkbox("✏️ Crear o cambiar encabezados manualmente")
+                override = st.checkbox(
+                    "✏️ El archivo no tiene encabezados / Cambiar columnas manualmente"
+                )
 
             except Exception as e:
                 st.error(f"Error al leer el archivo: {e}")
@@ -83,45 +93,38 @@ if modo.startswith("🔁"):
             st.warning("Esperando archivo para procesar...")
         else:
             try:
-                # ======================================================
-                # CREACIÓN MANUAL DE ENCABEZADOS
-                # ======================================================
                 if override:
-                    st.info("Selecciona la fila que contiene los nombres de las columnas")
+                    st.info("El archivo no contiene encabezados. Se asignarán automáticamente.")
 
-                    fila_encabezado = st.number_input(
-                        "Fila de encabezado (empieza en 1)",
-                        min_value=1,
-                        max_value=len(df),
-                        value=1,
-                        step=1
-                    )
+                    df.columns = [f"Columna_{i+1}" for i in range(len(df.columns))]
 
-                    nuevos_encabezados = df.iloc[fila_encabezado - 1].astype(str)
-                    df.columns = nuevos_encabezados
-                    df = df.iloc[fila_encabezado:].reset_index(drop=True)
-
-                    st.success("✅ Encabezados creados manualmente")
+                    st.subheader("👀 Vista previa de los datos")
                     st.dataframe(df.head(20), use_container_width=True)
 
-                # ======================================================
-                # DETECCIÓN DE COLUMNAS
-                # ======================================================
-                def detectar_columna(cols, claves):
-                    for col in cols:
-                        if any(k in col.lower() for k in claves):
-                            return col
-                    return None
+                    columnas = list(df.columns)
 
-                col_estructura = detectar_columna(df.columns, ["estructura", "programática"])
-                col_libramiento = detectar_columna(df.columns, ["libramiento", "número"])
+                    col_estructura = st.selectbox(
+                        "Selecciona la columna de Estructura Programática",
+                        columnas
+                    )
+
+                    col_libramiento = st.selectbox(
+                        "Selecciona la columna de Número de Libramiento",
+                        columnas
+                    )
+                else:
+                    def detectar_columna(cols, claves):
+                        for col in cols:
+                            if any(k in col.lower() for k in claves):
+                                return col
+                        return None
+
+                    col_estructura = detectar_columna(df.columns, ["estructura", "programática"])
+                    col_libramiento = detectar_columna(df.columns, ["libramiento", "número"])
 
                 if not col_estructura or not col_libramiento:
-                    st.error("❌ No se detectaron las columnas necesarias.")
+                    st.error("❌ No se pudieron identificar las columnas necesarias.")
                 else:
-                    # ======================================================
-                    # UNIFICACIÓN
-                    # ======================================================
                     def transformar(fila):
                         v1 = str(fila[col_estructura]).split('.')[0].zfill(12)
                         v2 = str(fila[col_libramiento]).split('.')[0]
@@ -134,7 +137,6 @@ if modo.startswith("🔁"):
 
                     if not validos.empty:
                         resultado_final = ";".join(validos)
-
                         st.success("✔️ Datos unificados correctamente")
                         st.metric("📊 Registros unificados", len(validos))
                         st.code(resultado_final, language=None)
@@ -145,7 +147,7 @@ if modo.startswith("🔁"):
                 st.error(f"Error en unificación: {e}")
 
 # ======================================================
-# MODO MANUAL
+# MODO MANUAL (AUTOMÁTICO + BLOQUEO DE LETRAS)
 # ======================================================
 if modo.startswith("🧩"):
 
@@ -155,23 +157,40 @@ if modo.startswith("🧩"):
     col1, col2 = st.columns(2)
 
     with col1:
-        estructura = st.text_input(
+        st.text_input(
             "Estructura Programática (12 dígitos)",
-            placeholder="Ej: 010203040506"
+            placeholder="Ej: 010203040506",
+            key="estructura",
+            on_change=solo_numeros,
+            args=("estructura",)
         )
 
     with col2:
-        libramiento = st.text_input(
-            "Número de Libramiento",
-            placeholder="Ej: 12345"
+        st.text_input(
+            "Número de Libramiento (4 o 5 dígitos)",
+            placeholder="Ej: 1234 o 12345",
+            key="libramiento",
+            on_change=solo_numeros,
+            args=("libramiento",)
         )
 
-    if st.button("UNIFICAR"):
-        if not estructura or not libramiento:
-            st.error("❌ Ambos campos son obligatorios")
-        elif not estructura.isdigit() or len(estructura) != 12:
-            st.error("❌ La estructura debe tener exactamente 12 dígitos")
-        else:
+    estructura = st.session_state.get("estructura", "")
+    libramiento = st.session_state.get("libramiento", "")
+
+    # 🔄 VALIDACIÓN + UNIFICACIÓN AUTOMÁTICA
+    if estructura and libramiento:
+
+        errores = False
+
+        if len(estructura) != 12:
+            st.error("❌ La Estructura Programática debe tener exactamente 12 dígitos")
+            errores = True
+
+        if not (4 <= len(libramiento) <= 5):
+            st.error("❌ El Número de Libramiento debe tener entre 4 y 5 dígitos")
+            errores = True
+
+        if not errores:
             resultado = (
                 f"{estructura[:4]}."
                 f"{estructura[4:6]}."
@@ -179,7 +198,7 @@ if modo.startswith("🧩"):
                 f"{libramiento}"
             )
 
-            st.success("✔️ Unificación exitosa")
+            st.success("✔️ Unificación automática exitosa")
             st.code(resultado, language=None)
 
 st.divider()
