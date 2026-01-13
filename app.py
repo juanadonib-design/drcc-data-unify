@@ -1,208 +1,160 @@
 import streamlit as st
 import pandas as pd
-import re
+import io
+import os
+from datetime import datetime, timedelta
 
-# ======================================================
-# FUNCIÓN: BLOQUEAR LETRAS (SOLO NÚMEROS)
-# ======================================================
-def solo_numeros(key):
-    valor = st.session_state.get(key, "")
-    st.session_state[key] = re.sub(r"\D", "", valor)
-
-# ======================================================
-# CONFIGURACIÓN
-# ======================================================
+# ================= CONFIGURACIÓN =================
 st.set_page_config(
     page_title="DRCC DATA UNIFY",
     page_icon="📊",
     layout="wide"
 )
 
-# ======================================================
-# ESTILOS
-# ======================================================
+# ================= ESTILOS =================
 st.markdown("""
 <style>
-.main-title { color:#1E3A8A; font-size:42px; font-weight:bold; margin-bottom:0; }
-.sub-title { color:#333; font-size:20px; font-weight:600; margin-top:5px; }
+.main { background-color: #0f172a; color: white; }
+.stButton>button {
+    width: 100%;
+    border-radius: 12px;
+    height: 3em;
+    background: linear-gradient(135deg,#2563eb,#1e40af);
+    color: white;
+    font-weight: bold;
+}
+.card {
+    background-color:#020617;
+    padding:20px;
+    border-radius:15px;
+    box-shadow:0 0 20px rgba(37,99,235,.3)
+}
+code { color:#e5e7eb !important }
 </style>
 """, unsafe_allow_html=True)
 
-# ======================================================
-# ENCABEZADO
-# ======================================================
-st.markdown('<p class="main-title">DRCC DATA UNIFY</p>', unsafe_allow_html=True)
-st.markdown('<p class="sub-title">Creado por Juan Brito | Idea: Chabellys Encarnacion</p>', unsafe_allow_html=True)
-st.markdown(
-    '<p style="color:#555; font-size:16px;">'
-    'Ahorra tiempo al unificar estructuras programáticas y libramientos en SIGEF.'
-    '</p>',
-    unsafe_allow_html=True
-)
+# ================= SESIÓN =================
+if "historial_manual" not in st.session_state:
+    st.session_state.historial_manual = []
+
+# ================= FUNCIONES =================
+def unificar_manual(estructura, libramiento):
+    estructura = estructura.zfill(12)
+    parte_a = estructura[:6]
+    parte_b = estructura[8:]
+    return f"{parte_a[:4]}.{parte_a[4:6]}.{parte_b}.{libramiento}"
+
+def limpiar_historial():
+    ahora = datetime.now()
+    st.session_state.historial_manual = [
+        h for h in st.session_state.historial_manual
+        if ahora - h["fecha"] < timedelta(hours=24)
+    ][-10:]
+
+# ================= HEADER =================
+st.markdown("<h1>DRCC DATA UNIFY</h1>", unsafe_allow_html=True)
+st.caption("Creado por Juan Brito · Idea de Chabellys Encarnación")
 st.divider()
 
-# ======================================================
-# SELECCIÓN DE MODO
-# ======================================================
+# ================= MODO =================
 modo = st.radio(
-    "🧭 Selecciona el modo de trabajo",
-    ["🔁 Modo múltiple (Excel)", "🧩 Modo manual (uno por uno)"],
+    "Selecciona el modo de trabajo",
+    ["Modo múltiple (Excel)", "Modo manual (uno por uno)"],
     horizontal=True
 )
 
-st.divider()
+# ================= MANUAL =================
+if modo == "Modo manual (uno por uno)":
 
-# ======================================================
-# MODO MÚLTIPLE
-# ======================================================
-if modo.startswith("🔁"):
-
-    col1, col2 = st.columns([1, 2], gap="large")
-
-    with col1:
-        st.info("### 📂 Cargar archivo Excel")
-        uploaded_file = st.file_uploader("Subir archivo (.xlsx)", type=["xlsx"])
-        df = None
-
-        if uploaded_file:
-            try:
-                scan_df = pd.read_excel(uploaded_file, header=None, nrows=6).fillna("")
-                keywords = ["estructura", "programática", "libramiento", "número"]
-
-                header_row = max(
-                    range(len(scan_df)),
-                    key=lambda i: sum(
-                        any(k in str(c).lower() for k in keywords)
-                        for c in scan_df.iloc[i]
-                    )
-                )
-
-                uploaded_file.seek(0)
-                df = pd.read_excel(uploaded_file, header=header_row, dtype=str).fillna("")
-                st.success("✅ Archivo cargado correctamente")
-
-                override = st.checkbox(
-                    "✏️ El archivo no tiene encabezados / Cambiar columnas manualmente"
-                )
-
-            except Exception as e:
-                st.error(f"Error al leer el archivo: {e}")
-
-    with col2:
-        if df is None:
-            st.warning("Esperando archivo para procesar...")
-        else:
-            try:
-                if override:
-                    st.info("El archivo no contiene encabezados. Se asignarán automáticamente.")
-
-                    df.columns = [f"Columna_{i+1}" for i in range(len(df.columns))]
-
-                    st.subheader("👀 Vista previa de los datos")
-                    st.dataframe(df.head(20), use_container_width=True)
-
-                    columnas = list(df.columns)
-
-                    col_estructura = st.selectbox(
-                        "Selecciona la columna de Estructura Programática",
-                        columnas
-                    )
-
-                    col_libramiento = st.selectbox(
-                        "Selecciona la columna de Número de Libramiento",
-                        columnas
-                    )
-                else:
-                    def detectar_columna(cols, claves):
-                        for col in cols:
-                            if any(k in col.lower() for k in claves):
-                                return col
-                        return None
-
-                    col_estructura = detectar_columna(df.columns, ["estructura", "programática"])
-                    col_libramiento = detectar_columna(df.columns, ["libramiento", "número"])
-
-                if not col_estructura or not col_libramiento:
-                    st.error("❌ No se pudieron identificar las columnas necesarias.")
-                else:
-                    def transformar(fila):
-                        v1 = str(fila[col_estructura]).split('.')[0].zfill(12)
-                        v2 = str(fila[col_libramiento]).split('.')[0]
-                        if v1 == "000000000000" or not v2:
-                            return ""
-                        return f"{v1[:4]}.{v1[4:6]}.{v1[8:]}.{v2}"
-
-                    resultados = df.apply(transformar, axis=1)
-                    validos = resultados[resultados != ""]
-
-                    if not validos.empty:
-                        resultado_final = ";".join(validos)
-                        st.success("✔️ Datos unificados correctamente")
-                        st.metric("📊 Registros unificados", len(validos))
-                        st.code(resultado_final, language=None)
-                    else:
-                        st.warning("⚠️ No se encontraron datos válidos.")
-
-            except Exception as e:
-                st.error(f"Error en unificación: {e}")
-
-# ======================================================
-# MODO MANUAL (AUTOMÁTICO + BLOQUEO DE LETRAS)
-# ======================================================
-if modo.startswith("🧩"):
-
-    st.subheader("🧩 Unificación manual")
-    st.caption("Ideal cuando el volumen de trabajo es bajo")
-
+    st.markdown("## ✳️ Unificación Manual")
     col1, col2 = st.columns(2)
 
     with col1:
-        st.text_input(
+        estructura = st.text_input(
             "Estructura Programática (12 dígitos)",
-            placeholder="Ej: 010203040506",
-            key="estructura",
-            on_change=solo_numeros,
-            args=("estructura",)
+            max_chars=12
         )
 
     with col2:
-        st.text_input(
-            "Número de Libramiento (2 o 5 dígitos)",
-            placeholder="Ej: 1234 o 12345",
-            key="libramiento",
-            on_change=solo_numeros,
-            args=("libramiento",)
+        libramiento = st.text_input(
+            "Número de Libramiento",
+            max_chars=5
         )
 
-    estructura = st.session_state.get("estructura", "")
-    libramiento = st.session_state.get("libramiento", "")
+    btn_unificar = st.button("UNIFICAR")
 
-    # 🔄 VALIDACIÓN + UNIFICACIÓN AUTOMÁTICA
-    if estructura and libramiento:
+    if btn_unificar and estructura and libramiento:
+        resultado = unificar_manual(estructura, libramiento)
 
-        errores = False
+        st.session_state.historial_manual.append({
+            "estructura": estructura,
+            "libramiento": libramiento,
+            "resultado": resultado,
+            "fecha": datetime.now()
+        })
 
-        if len(estructura) != 12:
-            st.error("❌ La Estructura Programática debe tener exactamente 12 dígitos")
-            errores = True
+        limpiar_historial()
 
-        if not (2 <= len(libramiento) <= 5):
-            st.error("❌ El Número de Libramiento debe tener entre 2 y 5 dígitos")
-            errores = True
+        st.success("Unificación guardada")
 
-        if not errores:
-            resultado = (
-                f"{estructura[:4]}."
-                f"{estructura[4:6]}."
-                f"{estructura[8:]}."
-                f"{libramiento}"
+    # ===== HISTORIAL =====
+    st.markdown("### 🕒 Historial (últimas 10)")
+
+    for i, h in enumerate(st.session_state.historial_manual):
+        c1, c2, c3 = st.columns([6, 3, 1])
+        with c1:
+            st.write(h["resultado"])
+        with c2:
+            st.caption(h["fecha"].strftime("%d/%m %H:%M"))
+        with c3:
+            if st.button("❌", key=f"del_{i}"):
+                st.session_state.historial_manual.pop(i)
+                st.rerun()
+
+    # ===== UNIFICADO TOTAL =====
+    if st.session_state.historial_manual:
+        st.markdown("### 🔗 Resultado Unificado del Historial")
+        st.code(";".join(h["resultado"] for h in st.session_state.historial_manual))
+
+# ================= EXCEL =================
+else:
+    st.markdown("## 📂 Unificación por Excel")
+
+    uploaded_file = st.file_uploader(
+        "Subir archivo Excel (.xlsx)",
+        type=["xlsx"]
+    )
+
+    if uploaded_file:
+        df = pd.read_excel(uploaded_file, dtype=str).fillna("")
+        st.success("Archivo cargado")
+
+        col_larga = st.selectbox("Estructura Programática", df.columns)
+        col_sufijo = st.selectbox("Número de Libramiento", df.columns)
+
+        if st.button("UNIFICAR PARA SIGEF"):
+            def transformar(fila):
+                v1 = str(fila[col_larga]).split('.')[0].zfill(12)
+                v2 = str(fila[col_sufijo]).split('.')[0]
+                return unificar_manual(v1, v2)
+
+            resultados = df.apply(transformar, axis=1)
+            texto = ";".join(resultados)
+
+            st.code(texto)
+
+            df.insert(0, "RESULTADO_UNIFICADO", resultados)
+
+            output = io.BytesIO()
+            with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
+                df.to_excel(writer, index=False)
+
+            st.download_button(
+                "📥 DESCARGAR EXCEL",
+                data=output.getvalue(),
+                file_name="Resultado_SIGEF.xlsx"
             )
 
-            st.success("✔️ Unificación automática exitosa")
-            st.code(resultado, language=None)
-
+# ================= FOOTER =================
 st.divider()
-st.caption("DRCC DATA UNIFY - Herramienta diseñada para agilizar el proceso de firma en SIGEF")
-
-
-
+st.caption("DRCC DATA UNIFY · Herramienta institucional para SIGEF")
