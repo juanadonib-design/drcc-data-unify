@@ -186,7 +186,7 @@ if modo.startswith("🧩"):
             st.error("❌ La Estructura Programática debe tener exactamente 12 dígitos")
             errores = True
 
-        if not (4 <= len(libramiento) <= 5):
+        if not (2 <= len(libramiento) <= 5):
             st.error("❌ El Número de Libramiento debe tener entre 4 y 5 dígitos")
             errores = True
 
@@ -203,3 +203,4 @@ if modo.startswith("🧩"):
 
 st.divider()
 st.caption("DRCC DATA UNIFY - Herramienta diseñada para agilizar el proceso de firma en SIGEF")
+
