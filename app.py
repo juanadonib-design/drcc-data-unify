@@ -167,7 +167,7 @@ if modo.startswith("🧩"):
 
     with col2:
         st.text_input(
-            "Número de Libramiento (4 o 5 dígitos)",
+            "Número de Libramiento (1 o 5 dígitos)",
             placeholder="Ej: 1234 o 12345",
             key="libramiento",
             on_change=solo_numeros,
@@ -186,7 +186,7 @@ if modo.startswith("🧩"):
             st.error("❌ La Estructura Programática debe tener exactamente 12 dígitos")
             errores = True
 
-        if not (4 <= len(libramiento) <= 5):
+        if not (1 <= len(libramiento) <= 5):
             st.error("❌ El Número de Libramiento debe tener entre 4 y 5 dígitos")
             errores = True
 
@@ -203,3 +203,4 @@ if modo.startswith("🧩"):
 
 st.divider()
 st.caption("DRCC DATA UNIFY - Herramienta diseñada para agilizar el proceso de firma en SIGEF")
+
