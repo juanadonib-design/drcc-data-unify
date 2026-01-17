@@ -59,7 +59,7 @@ if modo.startswith("🔁"):
 
     col1, col2 = st.columns([1, 2], gap="large")
 
-    # Inicializar variables para compartir entre columnas
+    # Inicializar variables
     df = None
     override = False
 
@@ -73,7 +73,6 @@ if modo.startswith("🔁"):
                 scan_df = pd.read_excel(uploaded_file, header=None, nrows=6).fillna("")
                 keywords = ["estructura", "programática", "libramiento", "número"]
 
-                # Buscar la fila que tenga más coincidencias con las palabras clave
                 header_row = max(
                     range(len(scan_df)),
                     key=lambda i: sum(
@@ -86,7 +85,7 @@ if modo.startswith("🔁"):
                 uploaded_file.seek(0)
                 df_raw = pd.read_excel(uploaded_file, header=None, dtype=str).fillna("")
 
-                # 3. Detectar si la fila seleccionada parece un encabezado real (tiene letras)
+                # 3. Detectar si parece encabezado real
                 posible_header = df_raw.iloc[header_row]
                 tiene_texto = any(
                     any(c.isalpha() for c in str(valor))
@@ -94,11 +93,9 @@ if modo.startswith("🔁"):
                 )
 
                 if tiene_texto:
-                    # Leer usando esa fila como header
                     uploaded_file.seek(0)
                     df = pd.read_excel(uploaded_file, header=header_row, dtype=str).fillna("")
                 else:
-                    # Si no parece header, usar datos crudos y asignar nombres genéricos
                     df = df_raw.copy()
                     df.columns = [f"Columna_{i+1}" for i in range(len(df.columns))]
 
@@ -116,21 +113,17 @@ if modo.startswith("🔁"):
             st.warning("Esperando archivo para procesar...")
         else:
             try:
-                # Si el usuario quiere forzar cambio manual de columnas o no se detectaron headers
-                if override:
-                    st.info("Modo manual de columnas activado.")
-                    # Si forzamos manual, a veces conviene renombrar columnas genéricas
-                    if not any("Columna_" in col for col in df.columns):
-                         # Opcional: Mantener nombres originales o resetear si están muy sucios
-                         pass 
-
-                st.subheader("👀 Vista previa de los datos")
-                st.dataframe(df.head(10), use_container_width=True)
-
                 columnas = list(df.columns)
-                
-                # Lógica de selección de columnas
+                col_estructura = None
+                col_libramiento = None
+
+                # Lógica: Si es manual (override) mostramos tabla y selectores.
+                # Si es automático, NO mostramos tabla, solo procesamos.
                 if override:
+                    st.info("Modo manual activado.")
+                    st.subheader("👀 Vista previa de los datos")
+                    st.dataframe(df.head(20), use_container_width=True)
+
                     col_estructura = st.selectbox(
                         "Selecciona la columna de Estructura Programática",
                         columnas
@@ -140,7 +133,7 @@ if modo.startswith("🔁"):
                         columnas
                     )
                 else:
-                    # Detección automática
+                    # Detección automática (sin vista previa)
                     def detectar_columna(cols, claves):
                         for col in cols:
                             if any(k in col.lower() for k in claves):
@@ -150,30 +143,22 @@ if modo.startswith("🔁"):
                     col_estructura = detectar_columna(df.columns, ["estructura", "programática"])
                     col_libramiento = detectar_columna(df.columns, ["libramiento", "número"])
 
-                # Procesamiento final
+                # Procesamiento
                 if not col_estructura or not col_libramiento:
-                    st.error("❌ No se pudieron identificar las columnas automáticamente. Activa la casilla 'El archivo no tiene encabezados' en la izquierda.")
+                    st.error("❌ No se pudieron identificar las columnas automáticamente. Activa la casilla manual.")
                 else:
-                    st.caption(f"Usando: **{col_estructura}** y **{col_libramiento}**")
-                    
-                    def transformar(fila):
-                        # Limpieza básica
-                        v1 = str(fila[col_estructura]).strip()
-                        v2 = str(fila[col_libramiento]).strip()
-                        
-                        # Quitar decimales si vinieron del Excel (ej: 1234.0 -> 1234)
-                        v1 = v1.split('.')[0]
-                        v2 = v2.split('.')[0]
+                    # Si estamos en automático, mostramos qué columnas eligió el sistema
+                    if not override:
+                        st.caption(f"✅ Columnas detectadas: **{col_estructura}** y **{col_libramiento}**")
 
-                        # Rellenar ceros para estructura si es numérico
+                    def transformar(fila):
+                        v1 = str(fila[col_estructura]).strip().split('.')[0]
+                        v2 = str(fila[col_libramiento]).strip().split('.')[0]
+                        
                         v1 = re.sub(r"\D", "", v1).zfill(12)
                         
-                        # Validar longitud mínima
                         if v1 == "000000000000" or not v2:
                             return ""
-                        
-                        # Formato solicitado: XXXX.XX.XXXX.Libramiento
-                        # Nota: Se saltan los dígitos 6 y 7 de la estructura original (índices 6 y 7)
                         return f"{v1[:4]}.{v1[4:6]}.{v1[8:]}.{v2}"
 
                     resultados = df.apply(transformar, axis=1)
@@ -183,9 +168,11 @@ if modo.startswith("🔁"):
                         resultado_final = ";".join(validos)
                         st.success("✔️ Datos unificados correctamente")
                         st.metric("📊 Registros unificados", len(validos))
-                        st.text_area("Resultado (Copiar y pegar en SIGEF):", value=resultado_final, height=150)
+                        
+                        # Usamos st.code para mantener el botón de copiar
+                        st.code(resultado_final, language=None)
                     else:
-                        st.warning("⚠️ No se encontraron datos válidos para procesar.")
+                        st.warning("⚠️ No se encontraron datos válidos.")
 
             except Exception as e:
                 st.error(f"Error en unificación: {e}")
@@ -235,7 +222,6 @@ if modo.startswith("🧩"):
             errores = True
 
         if not errores:
-            # Formato: XXXX.XX.XXXX.Libramiento
             resultado = (
                 f"{estructura[:4]}."
                 f"{estructura[4:6]}."
