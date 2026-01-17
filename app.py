@@ -78,7 +78,21 @@ if modo.startswith("🔁"):
                 )
 
                 uploaded_file.seek(0)
-                df = pd.read_excel(uploaded_file, header=header_row, dtype=str).fillna("")
+df_raw = pd.read_excel(uploaded_file, header=None, dtype=str).fillna("")
+
+# Detectar si la fila parece encabezado
+posible_header = df_raw.iloc[header_row]
+tiene_texto = any(
+    any(c.isalpha() for c in str(valor))
+    for valor in posible_header
+)
+
+if tiene_texto:
+    df = pd.read_excel(uploaded_file, header=header_row, dtype=str).fillna("")
+else:
+    df = df_raw.copy()
+    df.columns = [f"Columna_{i+1}" for i in range(len(df.columns))]
+
                 st.success("✅ Archivo cargado correctamente")
 
                 override = st.checkbox(
@@ -203,4 +217,5 @@ if modo.startswith("🧩"):
 
 st.divider()
 st.caption("DRCC DATA UNIFY - Herramienta diseñada para agilizar el proceso de firma en SIGEF")
+
 
