@@ -102,7 +102,7 @@ if modo.startswith("🔁"):
                 st.success("✅ Archivo cargado correctamente")
 
                 override = st.checkbox(
-                    "✏️ El archivo no tiene encabezados / Cambiar columnas manualmente"
+                    "✏️ Manual"
                 )
 
             except Exception as e:
@@ -234,3 +234,4 @@ if modo.startswith("🧩"):
 
 st.divider()
 st.caption("DRCC DATA UNIFY - Herramienta diseñada para agilizar el proceso de firma en SIGEF")
+
