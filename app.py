@@ -59,16 +59,21 @@ if modo.startswith("🔁"):
 
     col1, col2 = st.columns([1, 2], gap="large")
 
+    # Inicializar variables para compartir entre columnas
+    df = None
+    override = False
+
     with col1:
         st.info("### 📂 Cargar archivo Excel")
         uploaded_file = st.file_uploader("Subir archivo (.xlsx)", type=["xlsx"])
-        df = None
 
         if uploaded_file:
             try:
+                # 1. Escanear primeras filas para buscar encabezado
                 scan_df = pd.read_excel(uploaded_file, header=None, nrows=6).fillna("")
                 keywords = ["estructura", "programática", "libramiento", "número"]
 
+                # Buscar la fila que tenga más coincidencias con las palabras clave
                 header_row = max(
                     range(len(scan_df)),
                     key=lambda i: sum(
@@ -77,22 +82,25 @@ if modo.startswith("🔁"):
                     )
                 )
 
-            try:
+                # 2. Leer el archivo completo
                 uploaded_file.seek(0)
-df_raw = pd.read_excel(uploaded_file, header=None, dtype=str).fillna("")
+                df_raw = pd.read_excel(uploaded_file, header=None, dtype=str).fillna("")
 
-# Detectar si la fila parece encabezado
-posible_header = df_raw.iloc[header_row]
-tiene_texto = any(
-    any(c.isalpha() for c in str(valor))
-    for valor in posible_header
-)
+                # 3. Detectar si la fila seleccionada parece un encabezado real (tiene letras)
+                posible_header = df_raw.iloc[header_row]
+                tiene_texto = any(
+                    any(c.isalpha() for c in str(valor))
+                    for valor in posible_header
+                )
 
-if tiene_texto:
-    df = pd.read_excel(uploaded_file, header=header_row, dtype=str).fillna("")
-else:
-    df = df_raw.copy()
-    df.columns = [f"Columna_{i+1}" for i in range(len(df.columns))]
+                if tiene_texto:
+                    # Leer usando esa fila como header
+                    uploaded_file.seek(0)
+                    df = pd.read_excel(uploaded_file, header=header_row, dtype=str).fillna("")
+                else:
+                    # Si no parece header, usar datos crudos y asignar nombres genéricos
+                    df = df_raw.copy()
+                    df.columns = [f"Columna_{i+1}" for i in range(len(df.columns))]
 
                 st.success("✅ Archivo cargado correctamente")
 
@@ -108,26 +116,31 @@ else:
             st.warning("Esperando archivo para procesar...")
         else:
             try:
+                # Si el usuario quiere forzar cambio manual de columnas o no se detectaron headers
                 if override:
-                    st.info("El archivo no contiene encabezados. Se asignarán automáticamente.")
+                    st.info("Modo manual de columnas activado.")
+                    # Si forzamos manual, a veces conviene renombrar columnas genéricas
+                    if not any("Columna_" in col for col in df.columns):
+                         # Opcional: Mantener nombres originales o resetear si están muy sucios
+                         pass 
 
-                    df.columns = [f"Columna_{i+1}" for i in range(len(df.columns))]
+                st.subheader("👀 Vista previa de los datos")
+                st.dataframe(df.head(10), use_container_width=True)
 
-                    st.subheader("👀 Vista previa de los datos")
-                    st.dataframe(df.head(20), use_container_width=True)
-
-                    columnas = list(df.columns)
-
+                columnas = list(df.columns)
+                
+                # Lógica de selección de columnas
+                if override:
                     col_estructura = st.selectbox(
                         "Selecciona la columna de Estructura Programática",
                         columnas
                     )
-
                     col_libramiento = st.selectbox(
                         "Selecciona la columna de Número de Libramiento",
                         columnas
                     )
                 else:
+                    # Detección automática
                     def detectar_columna(cols, claves):
                         for col in cols:
                             if any(k in col.lower() for k in claves):
@@ -137,14 +150,30 @@ else:
                     col_estructura = detectar_columna(df.columns, ["estructura", "programática"])
                     col_libramiento = detectar_columna(df.columns, ["libramiento", "número"])
 
+                # Procesamiento final
                 if not col_estructura or not col_libramiento:
-                    st.error("❌ No se pudieron identificar las columnas necesarias.")
+                    st.error("❌ No se pudieron identificar las columnas automáticamente. Activa la casilla 'El archivo no tiene encabezados' en la izquierda.")
                 else:
+                    st.caption(f"Usando: **{col_estructura}** y **{col_libramiento}**")
+                    
                     def transformar(fila):
-                        v1 = str(fila[col_estructura]).split('.')[0].zfill(12)
-                        v2 = str(fila[col_libramiento]).split('.')[0]
+                        # Limpieza básica
+                        v1 = str(fila[col_estructura]).strip()
+                        v2 = str(fila[col_libramiento]).strip()
+                        
+                        # Quitar decimales si vinieron del Excel (ej: 1234.0 -> 1234)
+                        v1 = v1.split('.')[0]
+                        v2 = v2.split('.')[0]
+
+                        # Rellenar ceros para estructura si es numérico
+                        v1 = re.sub(r"\D", "", v1).zfill(12)
+                        
+                        # Validar longitud mínima
                         if v1 == "000000000000" or not v2:
                             return ""
+                        
+                        # Formato solicitado: XXXX.XX.XXXX.Libramiento
+                        # Nota: Se saltan los dígitos 6 y 7 de la estructura original (índices 6 y 7)
                         return f"{v1[:4]}.{v1[4:6]}.{v1[8:]}.{v2}"
 
                     resultados = df.apply(transformar, axis=1)
@@ -154,9 +183,9 @@ else:
                         resultado_final = ";".join(validos)
                         st.success("✔️ Datos unificados correctamente")
                         st.metric("📊 Registros unificados", len(validos))
-                        st.code(resultado_final, language=None)
+                        st.text_area("Resultado (Copiar y pegar en SIGEF):", value=resultado_final, height=150)
                     else:
-                        st.warning("⚠️ No se encontraron datos válidos.")
+                        st.warning("⚠️ No se encontraron datos válidos para procesar.")
 
             except Exception as e:
                 st.error(f"Error en unificación: {e}")
@@ -202,10 +231,11 @@ if modo.startswith("🧩"):
             errores = True
 
         if not (1 <= len(libramiento) <= 5):
-            st.error("❌ El Número de Libramiento debe tener entre 4 y 5 dígitos")
+            st.error("❌ El Número de Libramiento debe tener entre 1 y 5 dígitos")
             errores = True
 
         if not errores:
+            # Formato: XXXX.XX.XXXX.Libramiento
             resultado = (
                 f"{estructura[:4]}."
                 f"{estructura[4:6]}."
