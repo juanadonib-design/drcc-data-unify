@@ -77,7 +77,7 @@ if modo.startswith("🔁"):
                     )
                 )
 
-               try:
+            try:
                 uploaded_file.seek(0)
 df_raw = pd.read_excel(uploaded_file, header=None, dtype=str).fillna("")
 
@@ -218,6 +218,7 @@ if modo.startswith("🧩"):
 
 st.divider()
 st.caption("DRCC DATA UNIFY - Herramienta diseñada para agilizar el proceso de firma en SIGEF")
+
 
 
 
