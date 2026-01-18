@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
 import re
-xlrd >= 2.0.1
 
 # ======================================================
 # FUNCIÓN: BLOQUEAR LETRAS (SOLO NÚMEROS)
@@ -235,6 +234,7 @@ if modo.startswith("🧩"):
 
 st.divider()
 st.caption("DRCC DATA UNIFY - Herramienta diseñada para agilizar el proceso de firma en SIGEF")
+
 
 
 
