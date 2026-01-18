@@ -65,7 +65,7 @@ if modo.startswith("🔁"):
 
     with col1:
         st.info("### 📂 Cargar archivo Excel")
-        uploaded_file = st.file_uploader("Subir archivo (.xlsx)", type=["xlsx"])
+        uploaded_file = st.file_uploader("Subir archivo (.xlsx / .xls)", type=["xlsx", "xls"])
 
         if uploaded_file:
             try:
@@ -234,4 +234,5 @@ if modo.startswith("🧩"):
 
 st.divider()
 st.caption("DRCC DATA UNIFY - Herramienta diseñada para agilizar el proceso de firma en SIGEF")
+
 
