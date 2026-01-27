@@ -3,3 +3,4 @@ easyocr
 pillow
 pandas
 openpyxl
+numpy
