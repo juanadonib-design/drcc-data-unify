@@ -76,7 +76,7 @@ if modo.startswith("🔁"):
                 header_row = max(
                     range(len(scan_df)),
                     key=lambda i: sum(
-                        any(k in str(c).lower() for k in keywords)
+                        any(k in str(c).strip().lower() for k in keywords)
                         for c in scan_df.iloc[i]
                     )
                 )
@@ -136,7 +136,8 @@ if modo.startswith("🔁"):
                     # Detección automática (sin vista previa)
                     def detectar_columna(cols, claves):
                         for col in cols:
-                            if any(k in col.lower() for k in claves):
+                            col_texto = str(col).strip().lower()
+                            if any(k in col_texto() for k in claves):
                                 return col
                         return None
 
@@ -152,8 +153,11 @@ if modo.startswith("🔁"):
                         st.caption(f"✅ Columnas detectadas: **{col_estructura}** y **{col_libramiento}**")
 
                     def transformar(fila):
-                        v1 = str(fila[col_estructura]).strip().split('.')[0]
-                        v2 = str(fila[col_libramiento]).strip().split('.')[0]
+                        v1 = str(fila[col_estructura]) if pd.notna(fila[col_estructura]) else ""
+                        v2 = str(fila[col_libramiento]) if pd.notna(fila[col_libramiento]) else ""
+
+                        v1 = v1.strip().split('.')[0]
+                        v2 = v2.strip().split('.')[0]
                         
                         v1 = re.sub(r"\D", "", v1).zfill(12)
                         
@@ -234,4 +238,5 @@ if modo.startswith("🧩"):
 
 st.divider()
 st.caption("DRCC DATA UNIFY - Herramienta diseñada para agilizar el proceso de firma en SIGEF")
+
 
