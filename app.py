@@ -137,7 +137,7 @@ if modo.startswith("🔁"):
                     def detectar_columna(cols, claves):
                         for col in cols:
                             col_texto = str(col).strip().lower()
-                            if any(k in col_texto() for k in claves):
+                            if any(k in col_texto for k in claves):
                                 return col
                         return None
 
@@ -238,5 +238,6 @@ if modo.startswith("🧩"):
 
 st.divider()
 st.caption("DRCC DATA UNIFY - Herramienta diseñada para agilizar el proceso de firma en SIGEF")
+
 
 
