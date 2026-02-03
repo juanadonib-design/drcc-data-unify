@@ -1,5 +1,3 @@
-# drcc-data-unify
-
 # DRCC DATA UNIFY 📊
 
 **Herramienta de automatización para la gestión de firmas masivas en SIGEF.**
