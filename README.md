@@ -8,7 +8,7 @@
 
 ## 📖 Descripción
 
-**DRCC DATA UNIFY** es una aplicación diseñada para eliminar el trabajo manual repetitivo en la preparación de datos de auditoría. Su función principal es procesar los archivos de Excel exportados de **SUGEP** y convertir automáticamente los datos en códigos formateados y listos para **SIGEF**.
+**DRCC DATA UNIFY** es una aplicación diseñada para eliminar el trabajo manual repetitivo en la preparación de datos de ordenes de pago. Su función principal es procesar los archivos de Excel exportados de **SUGEP** y convertir automáticamente los datos en códigos formateados y listos para **SIGEF**.
 
 Esta herramienta permite a los auditores realizar **firmas múltiples (por lotes)**, unificando la *Estructura Programática* y el *Número de Libramiento* en una sola cadena de búsqueda, sin necesidad de limpiar columnas manualmente ni insertar puntos de formato uno por uno.
 
